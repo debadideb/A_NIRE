@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ── A_NIRE project-specific ──────────────────────────────────────────────
+# SQLite decision/audit store (created at runtime; never commit it).
+# .env / .venv / __pycache__ are already covered above.
+*.db
+*.sqlite
+*.sqlite3

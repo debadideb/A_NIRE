@@ -1,0 +1,16 @@
+entity_id,name,entity_type,jurisdiction,incorporation_year,kyc_status,registered_address
+E001,Tradewind Commerce Ltd,company,United Kingdom,2019,verified,"14 St Mary Axe, London, EC3A 8BF"
+E002,Layer Co 1,company,Cyprus,2024,thin_file,"Office 12, Nicosia Business Centre, Nicosia"
+E003,Layer Co 2,company,Malta,2024,thin_file,"Level 3, Valletta Court, Valletta"
+E004,Layer Co 3,company,Cyprus,2024,thin_file,"Office 12, Nicosia Business Centre, Nicosia"
+E005,Meridian Payment Agents,agent,United Arab Emirates,2022,verified,"Unit 7, JLT Cluster R, Dubai"
+E006,Volta Trading FZE,company,Marshall Islands,2021,none,
+E007,Azure Crest Holdings,company,British Virgin Islands,2023,nominee,"Suite 4B, Ocean Plaza, Victoria, Mahe"
+E008,Brightwater Ventures,company,Seychelles,2023,nominee,"Suite 4B, Ocean Plaza, Victoria, Mahe"
+E009,Cobalt Harbour Capital,company,Seychelles,2023,nominee,"Suite 4B, Ocean Plaza, Victoria, Mahe"
+E010,Acme Supplies Co,company,United Kingdom,2020,verified,"22 Trafford Park Road, Manchester, M17 1AB"
+E011,City Bank plc,bank,United Kingdom,2008,verified,"1 Threadneedle Street, London, EC2R 8AH"
+E012,Northwind Logistics Ltd,company,United Kingdom,2017,verified,"5 Dock Road, Liverpool, L3 4DB"
+E013,Meridian Freight GmbH,company,Germany,2015,verified,"Hafenstrasse 40, Hamburg"
+E014,Harbour Insurance Ltd,company,United Kingdom,2011,verified,"60 Gracechurch Street, London, EC3V 0HR"
+E015,Sterling Metals Ltd,company,United Kingdom,2016,verified,"9 Foundry Lane, Sheffield, S9 2QL"

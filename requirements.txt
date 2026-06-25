@@ -1,0 +1,6 @@
+# A_NIRE backend dependencies (Python 3.13)
+fastapi
+uvicorn[standard]
+neo4j
+anthropic
+python-dotenv

@@ -1,0 +1,2 @@
+case_id,subject_entity_id,trigger_code,trigger_desc,created_at
+CASE-2026-0001,E001,TM-771,High-value outbound to high-risk jurisdiction,2026-05-20T09:31:00
