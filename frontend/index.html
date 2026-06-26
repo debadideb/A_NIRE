@@ -82,6 +82,25 @@
   .recbox .reclabel{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:2px 0 5px}
   .recbox .reclabel .aitag{text-transform:none;letter-spacing:0;color:var(--blue);margin-left:6px}
   .recbox .rationale{font-size:12.5px;line-height:1.5;color:var(--ink);margin:0 0 11px}
+  .decision{margin-top:13px;border-top:1px dashed var(--line);padding-top:12px}
+  .dactions{display:flex;gap:6px;margin-bottom:8px}
+  .dact{flex:1;border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 4px;font-size:11.5px;font-weight:600;cursor:pointer;color:var(--ink)}
+  .dact:hover{border-color:#C9DBFB}
+  .dact.sel{border-color:var(--blue);background:#EFF5FF;color:var(--blue)}
+  .dinput{width:100%;border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:12px;font-family:var(--sans);margin-bottom:7px}
+  textarea.dinput{resize:vertical}
+  .dsave{width:100%;background:var(--blue);color:#fff;border:none;border-radius:7px;padding:9px;font-weight:600;font-size:12.5px;cursor:pointer}
+  .dsave:disabled{opacity:.6;cursor:default}
+  .dmsg{font-size:11.5px;margin-top:7px;min-height:14px}
+  .audit{margin-top:13px;border-top:1px dashed var(--line);padding-top:12px}
+  .auditlist{display:flex;flex-direction:column;gap:7px}
+  .aitem{font-size:11.5px;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .aitem.sys{background:#FBFCFD}
+  .aitem .ahead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .aitem .who{font-weight:600;color:var(--ink)}
+  .aitem .abadge{font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;border-radius:5px;padding:1px 6px}
+  .aitem .ameta{font-family:var(--mono);color:var(--muted);font-size:10px;margin-top:2px}
+  .aitem .anotes{color:var(--muted);margin-top:4px;line-height:1.4}
 
   /* tooltip */
   #tip{position:fixed;pointer-events:none;z-index:50;background:#0F1520;color:#E7ECF2;border:1px solid #29333F;border-radius:9px;padding:10px 12px;font-size:12px;max-width:240px;box-shadow:0 6px 20px rgba(10,15,25,.35);opacity:0;transition:opacity .08s}
@@ -150,7 +169,22 @@
             <div class="rhead" id="recHead">Recommendation</div>
             <div class="reclabel">AI rationale <span class="aitag" id="recSource"></span></div>
             <div class="rationale" id="recRationale">Generating rationale…</div>
-            <div class="soonrow"><span>Decision capture &amp; audit trail</span><span class="soon">Coming soon</span></div>
+            <div class="decision">
+              <div class="reclabel">Record decision</div>
+              <div class="dactions">
+                <button type="button" class="dact" data-act="SAR">File SAR</button>
+                <button type="button" class="dact" data-act="EDD">Escalate EDD</button>
+                <button type="button" class="dact" data-act="CLEAR">Clear</button>
+              </div>
+              <input class="dinput" id="decBy" placeholder="Analyst name" />
+              <textarea class="dinput" id="decNotes" rows="2" placeholder="Notes (optional)"></textarea>
+              <button type="button" class="dsave" id="decSave">Record decision</button>
+              <div class="dmsg" id="decMsg"></div>
+            </div>
+            <div class="audit">
+              <div class="reclabel">Decision trail</div>
+              <div class="auditlist" id="auditList">—</div>
+            </div>
           </div>
         </div>
         <div class="panel">
@@ -226,7 +260,10 @@
     var sb = document.getElementById("scoreBand"); if(sb){ sb.textContent = "—"; sb.style.background = COL.grey; }
   }
 
-  function render(data){ bindHeader(data); bindScore(data); bindDrivers(data); buildGraph(data); }
+  function render(data){
+    bindHeader(data); bindScore(data); bindDrivers(data); buildGraph(data);
+    bindDecision(data); loadAudit();
+  }
 
   function bindHeader(d){
     var c = d.case;
@@ -338,6 +375,74 @@
 
     window._cy = cy;  // exposed for verification
   }
+
+  // ---- decision capture + audit trail ----
+  var ACT_COLOR = {SAR:COL.red, EDD:COL.amber, CLEAR:COL.green};
+  var chosenAction = "SAR";
+  function bindDecision(d){
+    chosenAction = (d.recommendation && d.recommendation.action) || "SAR";
+    var btns = document.querySelectorAll(".dact");
+    btns.forEach(function(b){
+      b.classList.toggle("sel", b.getAttribute("data-act") === chosenAction);
+      b.onclick = function(){
+        chosenAction = b.getAttribute("data-act");
+        btns.forEach(function(x){ x.classList.toggle("sel", x === b); });
+      };
+    });
+    var save = document.getElementById("decSave");
+    if(save) save.onclick = saveDecision;
+  }
+  function saveDecision(){
+    var by = (document.getElementById("decBy").value || "").trim();
+    var notes = (document.getElementById("decNotes").value || "").trim();
+    var msg = document.getElementById("decMsg");
+    var save = document.getElementById("decSave");
+    save.disabled = true; msg.style.color = "var(--muted)"; msg.textContent = "Saving…";
+    fetch("/api/case/" + CASE_ID + "/decision", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: chosenAction, decided_by: by, notes: notes}),
+    }).then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(res){
+        msg.style.color = COL.green; msg.textContent = "Decision recorded ✓";
+        document.getElementById("decNotes").value = "";
+        renderAudit(res.audit);
+      }).catch(function(e){ msg.style.color = COL.red; msg.textContent = "Failed: " + e.message; })
+      .then(function(){ save.disabled = false; });
+  }
+  function loadAudit(){
+    fetch("/api/case/" + CASE_ID + "/audit")
+      .then(function(r){ return r.json(); }).then(renderAudit).catch(function(){});
+  }
+  function renderAudit(audit){
+    var box = document.getElementById("auditList"); if(!box || !audit) return;
+    box.innerHTML = "";
+    var rec = audit.recommendation;
+    box.appendChild(auditItem("System recommendation", rec.action,
+      "score " + rec.score + " · " + rec.rationale_source, "", true));
+    var decisions = (audit.decisions || []).slice().reverse();  // newest first
+    decisions.forEach(function(x){
+      box.appendChild(auditItem(x.decided_by, x.action,
+        fmtTime(x.created_at) + " · @" + x.score_total + " " + x.band, x.notes, false));
+    });
+    if(!decisions.length){
+      var none = document.createElement("div");
+      none.className = "aitem"; none.style.color = "var(--muted)";
+      none.textContent = "No analyst decision recorded yet.";
+      box.appendChild(none);
+    }
+  }
+  function auditItem(who, action, meta, notes, isSys){
+    var el = document.createElement("div");
+    el.className = "aitem" + (isSys ? " sys" : "");
+    var color = ACT_COLOR[action] || COL.grey;
+    el.innerHTML =
+      '<div class="ahead"><span class="who">' + esc(who) + '</span>' +
+      '<span class="abadge" style="background:' + color + '">' + esc(action) + '</span></div>' +
+      '<div class="ameta">' + esc(meta) + '</div>' +
+      (notes ? '<div class="anotes">' + esc(notes) + '</div>' : '');
+    return el;
+  }
+  function fmtTime(iso){ try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
 
   // ---- tooltip ----
   function posTip(ev){ if(!ev) return; tip.style.left=(ev.clientX+16)+"px"; tip.style.top=(ev.clientY+14)+"px"; }

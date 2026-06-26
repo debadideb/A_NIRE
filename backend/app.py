@@ -19,11 +19,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 # Make sibling modules importable regardless of uvicorn's working directory.
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 
+import store                                  # noqa: E402
 from graphdb import build_graph, get_driver  # noqa: E402
 from llm import generate_rationale            # noqa: E402
 from scoring import build_case_contract       # noqa: E402
@@ -40,6 +42,7 @@ async def lifespan(app: FastAPI):
     """
     app.state.contract = None
     app.state.error = None
+    store.init_db()  # decisions/audit table — independent of Neo4j, so it's always ready
     driver = None
     try:
         driver = get_driver()
@@ -64,13 +67,13 @@ async def lifespan(app: FastAPI):
             driver.close()
 
 
-app = FastAPI(title="A_NIRE Case Console", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="A_NIRE Case Console", version="0.4.0", lifespan=lifespan)
 
 
 @app.get("/api/health")
 def health() -> dict:
     """Liveness + graph-readiness probe."""
-    return {"status": "ok", "slice": 2, "graph_ready": app.state.contract is not None}
+    return {"status": "ok", "slice": 4, "graph_ready": app.state.contract is not None}
 
 
 @app.get("/api/case/{case_id}")
@@ -82,6 +85,62 @@ def get_case(case_id: str) -> dict:
     if case_id != contract["case"]["case_id"]:
         raise HTTPException(status_code=404, detail=f"Unknown case '{case_id}'")
     return contract
+
+
+class DecisionIn(BaseModel):
+    # Bounded free text — oversize input is rejected with 422 before it reaches
+    # SQLite, so a malformed client can't bloat the audit table / responses.
+    action: str = Field(max_length=16)
+    decided_by: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+def _require_case(case_id: str) -> dict:
+    contract = app.state.contract
+    if contract is None:
+        raise HTTPException(status_code=503, detail="Graph not ready (see server logs)")
+    if case_id != contract["case"]["case_id"]:
+        raise HTTPException(status_code=404, detail=f"Unknown case '{case_id}'")
+    return contract
+
+
+def _audit(case_id: str, contract: dict) -> dict:
+    """The audited decision trail: the system recommendation + every analyst decision."""
+    rec, score = contract["recommendation"], contract["score"]
+    return {
+        "recommendation": {
+            "action": rec["action"],
+            "headline": rec["headline"],
+            "score": score["total"],
+            "band": score["band"],
+            "rationale_source": rec["rationale_source"],
+        },
+        "decisions": store.list_decisions(case_id),
+    }
+
+
+@app.post("/api/case/{case_id}/decision")
+def post_decision(case_id: str, body: DecisionIn) -> dict:
+    """Capture an analyst's SAR/EDD/CLEAR decision (append-only) and return the trail."""
+    contract = _require_case(case_id)
+    action = (body.action or "").strip().upper()
+    if action not in {"SAR", "EDD", "CLEAR"}:
+        raise HTTPException(status_code=422, detail="action must be SAR, EDD, or CLEAR")
+    decided_by = (body.decided_by or "").strip() or "analyst"
+    notes = (body.notes or "").strip()
+    score = contract["score"]
+    row = store.record_decision(
+        case_id, action, decided_by, notes,
+        score["total"], score["band"], contract["recommendation"]["rationale_source"],
+    )
+    return {"decision": row, "audit": _audit(case_id, contract)}
+
+
+@app.get("/api/case/{case_id}/audit")
+def get_audit(case_id: str) -> dict:
+    """The audited decision trail for a case."""
+    contract = _require_case(case_id)
+    return _audit(case_id, contract)
 
 
 # Mount the frontend LAST so /api/* routes always win. html=True serves

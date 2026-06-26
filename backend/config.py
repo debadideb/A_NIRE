@@ -15,6 +15,9 @@ BACKEND_DIR = Path(__file__).resolve().parent      # backend/
 DATA_DIR = BACKEND_DIR / "data"                    # backend/data/
 REPO_ROOT = BACKEND_DIR.parent
 
+# SQLite store for decisions + audit trail (gitignored via *.db).
+DB_PATH = BACKEND_DIR / "anire.db"
+
 # Load repo-root .env (real secrets; gitignored). Safe no-op if absent.
 load_dotenv(REPO_ROOT / ".env")
 
