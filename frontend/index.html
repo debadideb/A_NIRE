@@ -130,6 +130,8 @@
   @media(max-width:840px){.body{grid-template-columns:1fr}.right{border-top:1px solid var(--line)}.canvas-wrap{border-right:none}.read{grid-template-columns:1fr}}
 </style>
 <script src="vendor/cytoscape.min.js"></script>
+<script src="vendor/dagre.min.js"></script>
+<script src="vendor/cytoscape-dagre.js"></script>
 </head>
 <body>
 <div class="page">
@@ -236,6 +238,20 @@
   var COL = {red:"#DB4B43",amber:"#E0A124",green:"#2FA66B",navy:"#28344A",grey:"#AEB8C4"};
   var DRIVER_COL = {circular_flow:COL.red, sanctioned_exposure:COL.red, shell_linkage:COL.amber};
 
+  // ── Layout: swap the whole graph arrangement from ONE place ──
+  // dagre (layered top→bottom, the default) needs the vendored cytoscape-dagre;
+  // cose / breadthfirst / concentric are built into Cytoscape (no extra lib).
+  var GRAPH_LAYOUT = "dagre";
+  var LAYOUTS = {
+    dagre:        {name:"dagre", rankDir:"TB", nodeSep:40, rankSep:72, edgeSep:14, fit:true, padding:30, animate:false},
+    breadthfirst: {name:"breadthfirst", directed:true, roots:"node[subject = 1]", spacingFactor:1.05, fit:true, padding:30, animate:false},
+    concentric:   {name:"concentric", fit:true, padding:30, minNodeSpacing:34, animate:false,
+                   concentric:function(n){ return Math.round((n.data("contrib")||0)*100) + (n.data("subject") ? 100 : 0); },
+                   levelWidth:function(){ return 1; }},
+    cose:         {name:"cose", animate:false, padding:30, nodeRepulsion:9000, idealEdgeLength:90, nodeOverlap:14}
+  };
+  function layoutConfig(){ return LAYOUTS[GRAPH_LAYOUT] || LAYOUTS.dagre; }
+
   var tip = document.getElementById("tip");
   var graphEl = document.getElementById("graph");
   var cy = null, locked = null;
@@ -328,7 +344,7 @@
       els.push({ data:{
         id:n.id, label:n.label, role:n.role, type:n.type, country:n.jurisdiction, kyc:n.kyc_status,
         subject:n.flags.subject?1:0, sanctioned:n.flags.sanctioned?1:0, shell:n.flags.shell?1:0,
-        size: n.flags.subject ? 58 : (n.role==="counterparty" ? 24 : 38),
+        size: n.flags.subject ? 56 : Math.round(22 + (cmap[n.id] || 0) * 95),  // risk-scaled
         contrib: cmap[n.id] || 0
       }});
     });
@@ -345,25 +361,27 @@
       style:[
         {selector:"node",style:{
           "background-color":COL.grey,"width":"data(size)","height":"data(size)",
-          "label":"data(label)","font-size":"9px","color":"#1F2733",
-          "text-valign":"bottom","text-margin-y":4,"border-width":2,"border-color":"#fff","min-zoomed-font-size":6}},
-        {selector:'node[role="subject"]',style:{"background-color":COL.navy,"color":"#fff","text-valign":"center","text-margin-y":0,"font-weight":"bold","font-size":"8px"}},
+          "label":"data(label)","font-size":"10px","font-weight":600,"color":"#1F2733",
+          "text-valign":"bottom","text-margin-y":5,"text-wrap":"wrap","text-max-width":"86px",
+          "text-outline-width":2,"text-outline-color":"#fff","min-zoomed-font-size":7,
+          "border-width":2,"border-color":"#fff"}},
+        {selector:'node[role="subject"]',style:{"background-color":COL.navy,"color":"#fff","text-valign":"center","text-margin-y":0,"font-weight":"bold","font-size":"9px","text-max-width":"66px","text-outline-color":COL.navy,"text-outline-width":2}},
         {selector:'node[role="sanctioned"]',style:{"background-color":COL.red}},
         {selector:'node[role="shell"]',style:{"background-color":COL.amber}},
         {selector:'node[role="layering"]',style:{"background-color":COL.amber}},
         {selector:'node[role="intermediary"]',style:{"background-color":COL.amber}},
-        {selector:'node[role="counterparty"]',style:{"background-color":COL.green}},
+        {selector:'node[role="counterparty"]',style:{"background-color":"#CBDED2","border-width":1,"opacity":0.7}},
         {selector:"node[sanctioned = 1]",style:{"border-width":4,"border-color":COL.red}},
         {selector:"edge",style:{
           "width":"data(width)","curve-style":"bezier","target-arrow-shape":"triangle","arrow-scale":1,
-          "line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.85}},
-        {selector:'edge[pattern="circular"]',style:{"line-color":COL.red,"target-arrow-color":COL.red}},
-        {selector:'edge[pattern="sanctioned"]',style:{"line-color":COL.red,"target-arrow-color":COL.red}},
-        {selector:'edge[pattern="shell"]',style:{"line-color":COL.amber,"target-arrow-color":COL.amber}},
-        {selector:'edge[pattern="clean"]',style:{"line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.4}},
-        {selector:".faded",style:{"opacity":0.10,"text-opacity":0.10}}
+          "line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.8}},
+        {selector:'edge[pattern="circular"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2}},
+        {selector:'edge[pattern="sanctioned"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2}},
+        {selector:'edge[pattern="shell"]',style:{"line-color":COL.amber,"target-arrow-color":COL.amber,"opacity":0.95,"arrow-scale":1.1}},
+        {selector:'edge[pattern="clean"]',style:{"line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.3}},
+        {selector:".faded",style:{"opacity":0.08,"text-opacity":0.08}}
       ],
-      layout:{name:"cose",animate:false,padding:34,nodeRepulsion:9000,idealEdgeLength:90,nodeOverlap:14}
+      layout: layoutConfig()
     });
 
     cy.on("mouseover","node",function(ev){ nodeTip(ev.target); if(!locked) focus(ev.target.closedNeighborhood()); });
@@ -506,7 +524,7 @@
     if(!cy) return;
     clearIsolate();
     resetFilterDisplay();
-    cy.layout({name:"cose",animate:false,padding:34,nodeRepulsion:9000,idealEdgeLength:90,nodeOverlap:14}).run();
+    cy.layout(layoutConfig()).run();
     cy.fit(undefined,30);
   };
 })();
