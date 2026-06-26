@@ -223,3 +223,9 @@ __marimo__/
 *.db
 *.sqlite
 *.sqlite3
+
+# ── Agent / assistant scaffolding — kept local, not published ──
+/CLAUDE.md
+/AGENTS.md
+/.claude/
+/.codex/
