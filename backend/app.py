@@ -25,6 +25,7 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 
 from graphdb import build_graph, get_driver  # noqa: E402
+from llm import generate_rationale            # noqa: E402
 from scoring import build_case_contract       # noqa: E402
 
 FRONTEND_DIR = _HERE.parent / "frontend"
@@ -44,7 +45,13 @@ async def lifespan(app: FastAPI):
         driver = get_driver()
         driver.verify_connectivity()
         report = build_graph(driver)
-        app.state.contract = build_case_contract(driver, report)
+        contract = build_case_contract(driver, report)
+        # Fill the recommendation rationale with a server-side LLM call (Opus 4.8).
+        # generate_rationale never raises — it degrades to a deterministic summary.
+        text, source = generate_rationale(contract)
+        contract["recommendation"]["rationale"] = text
+        contract["recommendation"]["rationale_source"] = source
+        app.state.contract = contract
     except Exception as exc:  # noqa: BLE001 — keep the app up; report 503 from endpoints
         # Full detail stays server-side (may contain hostnames/URIs); clients
         # only ever see a generic "graph not ready".

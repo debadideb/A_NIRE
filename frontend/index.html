@@ -79,6 +79,9 @@
   .recbox{margin-top:15px;border-top:1px dashed var(--line);padding-top:13px}
   .recbox .rhead{font-size:13px;font-weight:600;margin-bottom:9px}
   .recbox .soonrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin:6px 0}
+  .recbox .reclabel{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:2px 0 5px}
+  .recbox .reclabel .aitag{text-transform:none;letter-spacing:0;color:var(--blue);margin-left:6px}
+  .recbox .rationale{font-size:12.5px;line-height:1.5;color:var(--ink);margin:0 0 11px}
 
   /* tooltip */
   #tip{position:fixed;pointer-events:none;z-index:50;background:#0F1520;color:#E7ECF2;border:1px solid #29333F;border-radius:9px;padding:10px 12px;font-size:12px;max-width:240px;box-shadow:0 6px 20px rgba(10,15,25,.35);opacity:0;transition:opacity .08s}
@@ -145,7 +148,8 @@
           </div>
           <div class="recbox">
             <div class="rhead" id="recHead">Recommendation</div>
-            <div class="soonrow"><span>AI rationale</span><span class="soon">Coming soon</span></div>
+            <div class="reclabel">AI rationale <span class="aitag" id="recSource"></span></div>
+            <div class="rationale" id="recRationale">Generating rationale…</div>
             <div class="soonrow"><span>Decision capture &amp; audit trail</span><span class="soon">Coming soon</span></div>
           </div>
         </div>
@@ -241,6 +245,16 @@
     document.getElementById("scoreMk").style.left = Math.round(s.total*100) + "%";
     var rh = document.getElementById("recHead");
     if(rh && d.recommendation) rh.textContent = d.recommendation.headline;
+    if(d.recommendation){
+      var rr = document.getElementById("recRationale");
+      if(rr) rr.textContent = d.recommendation.rationale;
+      var rs = document.getElementById("recSource");
+      if(rs){
+        var src = d.recommendation.rationale_source || "";
+        // "llm:<provider>:<model>" -> show the model id; otherwise "rule-based"
+        rs.textContent = src.indexOf("llm:") === 0 ? src.slice(4).split(":").slice(1).join(":") : "rule-based";
+      }
+    }
   }
 
   function bindDrivers(d){

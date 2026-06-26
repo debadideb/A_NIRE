@@ -3,4 +3,5 @@ fastapi
 uvicorn[standard]
 neo4j
 anthropic
+openai          # generic OpenAI-compatible LLM provider (Ollama/Qwen, OpenRouter, …)
 python-dotenv
