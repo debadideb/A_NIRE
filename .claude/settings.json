@@ -4,13 +4,7 @@
       "Read",
       "Edit",
       "Write",
-      "Bash(ls:*)",
-      "Bash(cat:*)",
-      "Bash(tree:*)",
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git add:*)"
+      "Bash"
     ],
     "deny": [
       "Read(./.env)",
