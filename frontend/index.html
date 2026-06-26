@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AML Case Console — Interactive Network</title>
+<style>
+  :root{
+    --bg:#F7F8FA; --card:#FFFFFF; --ink:#1F2733; --muted:#6B7480; --line:#E2E6EB;
+    --blue:#2563EB; --navy:#28344A; --green:#2FA66B; --amber:#E0A124; --red:#DB4B43;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55}
+  .page{max-width:1100px;margin:0 auto;padding:28px 24px 70px}
+  .title{font-size:22px;font-weight:700;margin:0 0 2px}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:14px}
+  .app{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(20,30,45,.06);overflow:hidden}
+  .titlebar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:#FBFCFD}
+  .titlebar .dots{display:flex;gap:6px}
+  .titlebar .dots i{width:11px;height:11px;border-radius:50%;display:block;background:#E2E6EB}
+  .titlebar .name{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:6px}
+  .controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);background:#fff}
+  .field{display:flex;flex-direction:column;gap:3px}
+  .field label{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
+  .field .input{border:1px solid var(--line);border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:13px;min-width:120px}
+  .field .input.sm{min-width:64px}
+  .btn{background:var(--blue);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:13px;align-self:flex-end;cursor:pointer}
+  .casemeta{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .casemeta b{color:var(--ink)}
+
+  .body{display:grid;grid-template-columns:1fr 320px}
+  .canvas-wrap{position:relative;border-right:1px solid var(--line);background:radial-gradient(circle at 1px 1px,#ECEFF3 1px,transparent 0) 0 0/22px 22px,#fff;min-height:480px}
+  #graph{display:block;width:100%;height:480px;touch-action:none}
+  .node{cursor:grab}
+  .node:active{cursor:grabbing}
+  .edge-line{pointer-events:none}
+  .edge-hit{stroke:transparent;cursor:pointer}
+  .nlabel{pointer-events:none;font-size:10.5px;fill:#1F2733;font-family:var(--sans)}
+  .cap{pointer-events:none;font-weight:700;font-size:11px;font-family:var(--sans)}
+
+  .filter{position:absolute;left:16px;bottom:16px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px 13px;box-shadow:0 2px 8px rgba(20,30,45,.08);width:240px}
+  .filter .ftop{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px}
+  .filter .ftop b{color:var(--ink)}
+  input[type=range]{width:100%;accent-color:var(--blue)}
+  .filter .note{font-size:10.5px;color:var(--muted);margin-top:7px}
+
+  .hint{position:absolute;right:14px;top:12px;font-size:11px;color:var(--muted);font-family:var(--mono);background:rgba(255,255,255,.8);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+
+  .right{display:flex;flex-direction:column}
+  .panel{padding:16px;border-bottom:1px solid var(--line)}
+  .panel:last-child{border-bottom:none;flex:1}
+  .ptitle{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  .score{display:flex;align-items:baseline;gap:10px}
+  .score .v{font-size:40px;font-weight:700;line-height:1}
+  .band{font-family:var(--mono);font-weight:700;font-size:12px;color:#fff;background:var(--red);padding:4px 9px;border-radius:6px}
+  .scorebar{height:7px;border-radius:4px;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));margin:12px 0 4px;position:relative}
+  .scorebar .mk{position:absolute;top:-3px;left:74%;width:3px;height:13px;background:#1F2733;border-radius:2px}
+  .scorecap{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--mono)}
+  .drivers{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+  .driver{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer;transition:border-color .15s,background .15s}
+  .driver:hover{border-color:#C9DBFB;background:#F7FAFF}
+  .driver.active{border-color:var(--blue);background:#EFF5FF}
+  .driver .sw{width:9px;height:9px;border-radius:50%;flex:none}
+  .driver .dn{font-size:13px;font-weight:600}
+  .driver .dc{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .driver .zoom{margin-left:auto;font-size:11px;font-family:var(--mono);color:var(--blue)}
+  .chat{display:flex;flex-direction:column;gap:9px}
+  .bubble{max-width:88%;padding:9px 11px;border-radius:11px;font-size:12.5px}
+  .bubble.u{align-self:flex-end;background:#EAF1FF;border:1px solid #D7E5FF}
+  .bubble.a{align-self:flex-start;background:#F1F3F6;border:1px solid var(--line)}
+  .bubble.a .hl{color:var(--blue);font-weight:600}
+  .askbar{margin-top:4px;display:flex;gap:8px;border:1px solid var(--line);border-radius:9px;padding:8px 11px;color:var(--muted);font-size:12.5px;align-items:center}
+  .askbar .send{margin-left:auto;color:var(--blue);font-weight:600}
+  .askbar.disabled{opacity:.55}
+  .soon{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;font-weight:700;text-transform:uppercase;color:#8A6D00;background:#FFF3D6;border:1px solid #F0DCA0;border-radius:5px;padding:1px 6px;vertical-align:middle;margin-left:7px}
+  .dload{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:6px 2px}
+  .recbox{margin-top:15px;border-top:1px dashed var(--line);padding-top:13px}
+  .recbox .rhead{font-size:13px;font-weight:600;margin-bottom:9px}
+  .recbox .soonrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin:6px 0}
+
+  /* tooltip */
+  #tip{position:fixed;pointer-events:none;z-index:50;background:#0F1520;color:#E7ECF2;border:1px solid #29333F;border-radius:9px;padding:10px 12px;font-size:12px;max-width:240px;box-shadow:0 6px 20px rgba(10,15,25,.35);opacity:0;transition:opacity .08s}
+  #tip .t-name{font-weight:700;font-size:13px;margin-bottom:5px}
+  #tip .t-row{display:flex;justify-content:space-between;gap:14px;font-family:var(--mono);font-size:11px;color:#AEB8C4;margin:2px 0}
+  #tip .t-row b{color:#E7ECF2;font-weight:600}
+  #tip .t-flag{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:10.5px;color:#fff;background:var(--red);padding:2px 7px;border-radius:5px}
+
+  .read{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px}
+  .read .col{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+  .read h3{margin:0 0 12px;font-size:14px}
+  .enc{display:flex;flex-direction:column;gap:11px}
+  .enc .row{display:flex;align-items:center;gap:12px;font-size:13px}
+  .enc .desc span{color:var(--muted)}
+  .grad{flex:none;width:60px;height:11px;border-radius:6px;background:linear-gradient(90deg,var(--green),var(--amber),var(--red))}
+  .sizes{flex:none;width:60px;display:flex;align-items:center;gap:5px}
+  .sizes i{border-radius:50%;background:var(--muted);display:block}
+  .lineS{flex:none;width:60px;display:flex;align-items:center}
+  .lineS i{height:6px;width:60px;border-radius:3px;background:var(--muted)}
+  .arrowS{flex:none;width:60px;text-align:center;font-size:17px;color:var(--muted)}
+  .halo{flex:none;width:60px;display:flex;justify-content:center}
+  .halo i{width:14px;height:14px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px rgba(219,75,67,.3)}
+  .ints{display:flex;flex-direction:column;gap:9px;font-size:13px}
+  .ints .i{display:flex;gap:9px}
+  .ints .i b{color:var(--ink)}
+  .kbd{font-family:var(--mono);font-size:11px;background:#EEF2F7;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted);white-space:nowrap}
+  @media(max-width:840px){.body{grid-template-columns:1fr}.right{border-top:1px solid var(--line)}.canvas-wrap{border-right:none}.read{grid-template-columns:1fr}}
+</style>
+<script src="vendor/cytoscape.min.js"></script>
+</head>
+<body>
+<div class="page">
+  <h1 class="title">AML Case Console — interactive network</h1>
+  <p class="sub">Hover any node or link for details &middot; hover highlights its connections &middot; drag nodes to rearrange &middot; click a driver to isolate it.</p>
+
+  <div class="app">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div><span class="name" id="caseTag">case-console · loading…</span></div>
+    <div class="controls">
+      <div class="field"><label>Customer ID</label><div class="input" id="subjectId">—</div></div>
+      <div class="field"><label>Hops</label><div class="input sm">2 &#9662;</div></div>
+      <button class="btn" onclick="resetView()">Load network</button>
+      <div class="casemeta" id="caseMeta">subject &nbsp;<b>—</b></div>
+    </div>
+
+    <div class="body">
+      <div class="canvas-wrap" id="cv">
+        <span class="hint">hover &middot; drag &middot; click driver</span>
+        <div id="graph"></div>
+        <div class="filter">
+          <div class="ftop"><span>Filter &middot; contribution</span><b id="fval">&#8805; 0%</b></div>
+          <input type="range" id="frange" min="0" max="20" value="0" step="1" />
+          <div class="note">Hides small counterparties. View only &mdash; the score does not change.</div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="panel">
+          <p class="ptitle">Network risk</p>
+          <div class="score"><span class="v" id="scoreVal">—</span><span class="band" id="scoreBand">…</span></div>
+          <div class="scorebar"><div class="mk" id="scoreMk"></div></div>
+          <div class="scorecap"><span>clear</span><span>EDD</span><span>SAR</span></div>
+          <div class="drivers" id="drivers">
+            <div class="dload" id="dload">Loading detectors…</div>
+          </div>
+          <div class="recbox">
+            <div class="rhead" id="recHead">Recommendation</div>
+            <div class="soonrow"><span>AI rationale</span><span class="soon">Coming soon</span></div>
+            <div class="soonrow"><span>Decision capture &amp; audit trail</span><span class="soon">Coming soon</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="ptitle">Ask about this graph <span class="soon">Coming soon</span></p>
+          <div class="chat">
+            <div class="bubble u">Show the path from the subject to the sanctioned entity.</div>
+            <div class="bubble a">One path: Subject &#8594; <span class="hl">Intermediary</span> &#8594; <span class="hl">Sanctioned entity</span>, moving &pound;612k over two hops.</div>
+            <div class="bubble u">Is the money returning to the subject anywhere?</div>
+          </div>
+          <div class="askbar disabled"><span>Type a question&#8230; (not wired in this MVP)</span><span class="send">Send</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="read">
+    <div class="col">
+      <h3>How to read the graph</h3>
+      <div class="enc">
+        <div class="row"><span class="grad"></span><div class="desc">Node <b>colour</b> = entity risk <span>(green &#8594; red)</span></div></div>
+        <div class="row"><span class="sizes"><i style="width:7px;height:7px"></i><i style="width:11px;height:11px"></i><i style="width:15px;height:15px"></i></span><div class="desc">Node <b>size</b> = contribution <span>(share of flow)</span></div></div>
+        <div class="row"><span class="grad"></span><div class="desc">Edge <b>colour</b> = connection risk <span>(same scale)</span></div></div>
+        <div class="row"><span class="lineS"><i></i></span><div class="desc">Edge <b>width</b> = money volume</div></div>
+        <div class="row"><span class="arrowS">&#10148;</span><div class="desc"><b>Arrow</b> = direction money moves</div></div>
+        <div class="row"><span class="halo"><i></i></span><div class="desc"><b>Red halo &#9873;</b> = screening hit</div></div>
+      </div>
+    </div>
+    <div class="col">
+      <h3>Interactions</h3>
+      <div class="ints">
+        <div class="i"><span class="kbd">hover node</span><div><b>Details + highlight.</b> Tooltip with the entity&#8217;s risk, country and flags; its connections light up, the rest fade.</div></div>
+        <div class="i"><span class="kbd">hover link</span><div><b>Money detail.</b> Amount, direction and connection risk for that edge.</div></div>
+        <div class="i"><span class="kbd">drag</span><div><b>Rearrange.</b> Pull any node to untangle the layout.</div></div>
+        <div class="i"><span class="kbd">click driver</span><div><b>Isolate.</b> Shows only that typology&#8217;s sub-network; click again to reset.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+/* Graph + side panels driven by the live /api/case contract via Cytoscape.js.
+   This replaces ONLY the mockup's hand-coded <svg> graph + its data; the rest
+   of the mockup (layout, CSS, "how to read" panels) is unchanged. The chat box
+   stays presentational (out of scope). */
+(function(){
+  var CASE_ID = "CASE-2026-0001";
+  var COL = {red:"#DB4B43",amber:"#E0A124",green:"#2FA66B",navy:"#28344A",grey:"#AEB8C4"};
+  var DRIVER_COL = {circular_flow:COL.red, sanctioned_exposure:COL.red, shell_linkage:COL.amber};
+
+  var tip = document.getElementById("tip");
+  var graphEl = document.getElementById("graph");
+  var cy = null, locked = null;
+
+  fetch("/api/case/" + CASE_ID)
+    .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(render)
+    .catch(showError);
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function gbp(n){ return "£" + Number(n).toLocaleString(); }
+  function patternOf(key){ return key==="circular_flow" ? "circular"
+    : (key==="sanctioned_exposure" ? "sanctioned" : "shell"); }
+
+  function showError(err){
+    graphEl.innerHTML = '<div style="padding:24px;font-family:var(--mono);color:' + COL.red +
+      '">Could not load case: ' + esc(err.message) + '<br/>Is the API + Neo4j running?</div>';
+    var box = document.getElementById("drivers");
+    if(box) box.innerHTML = '<div class="dload">Detectors unavailable — API/Neo4j not reachable.</div>';
+    var sv = document.getElementById("scoreVal"); if(sv) sv.textContent = "—";
+    var sb = document.getElementById("scoreBand"); if(sb){ sb.textContent = "—"; sb.style.background = COL.grey; }
+  }
+
+  function render(data){ bindHeader(data); bindScore(data); bindDrivers(data); buildGraph(data); }
+
+  function bindHeader(d){
+    var c = d.case;
+    document.getElementById("caseTag").textContent = "case-console · " + c.case_id + " · neo4j-backed";
+    document.getElementById("subjectId").textContent = c.subject_entity_id;
+    document.getElementById("caseMeta").innerHTML =
+      "subject &nbsp;<b>" + esc(c.subject_name) + "</b><br/>trigger&nbsp; " + esc(c.trigger_desc);
+  }
+
+  function bindScore(d){
+    var s = d.score;
+    document.getElementById("scoreVal").textContent = s.total.toFixed(2);
+    var band = document.getElementById("scoreBand");
+    band.textContent = s.band;
+    band.style.background = s.band==="SAR" ? COL.red : (s.band==="EDD" ? COL.amber : COL.green);
+    document.getElementById("scoreMk").style.left = Math.round(s.total*100) + "%";
+    var rh = document.getElementById("recHead");
+    if(rh && d.recommendation) rh.textContent = d.recommendation.headline;
+  }
+
+  function bindDrivers(d){
+    var box = document.getElementById("drivers"); box.innerHTML = "";
+    d.detectors.filter(function(x){ return x.fired; }).forEach(function(det){
+      var pat = patternOf(det.key);
+      var el = document.createElement("div");
+      el.className = "driver"; el.setAttribute("data-sc", pat); el.title = det.explanation;
+      el.innerHTML = '<span class="sw" style="background:' + (DRIVER_COL[det.key]||COL.amber) + '"></span>' +
+        '<div><div class="dn">' + esc(det.name) + '</div><div class="dc">' +
+        det.entities.length + ' entities · ' + det.contribution.toFixed(2) + '</div></div>' +
+        '<span class="zoom">Isolate</span>';
+      el.addEventListener("click", function(){ toggleIsolate(pat, el); });
+      box.appendChild(el);
+    });
+  }
+
+  // Per-node "contribution" for the view-only filter, DERIVED from the API
+  // detectors (the highest detector weight a node participates in) rather than
+  // re-encoding scoring weights in the frontend.
+  function contribMap(detectors){
+    var m = {};
+    detectors.forEach(function(det){
+      if(!det.fired) return;
+      det.entities.forEach(function(id){ m[id] = Math.max(m[id]||0, det.contribution); });
+    });
+    return m;
+  }
+
+  function buildGraph(d){
+    var cmap = contribMap(d.detectors);
+    var els = [];
+    d.graph.nodes.forEach(function(n){
+      els.push({ data:{
+        id:n.id, label:n.label, role:n.role, type:n.type, country:n.jurisdiction, kyc:n.kyc_status,
+        subject:n.flags.subject?1:0, sanctioned:n.flags.sanctioned?1:0, shell:n.flags.shell?1:0,
+        size: n.flags.subject ? 58 : (n.role==="counterparty" ? 24 : 38),
+        contrib: cmap[n.id] || 0
+      }});
+    });
+    d.graph.edges.forEach(function(e){
+      var amt = e.amount_gbp;
+      els.push({ data:{
+        id:e.id, source:e.source, target:e.target, amount:amt, pattern:e.pattern||"clean",
+        width: Math.max(1.5, Math.min(7, Math.sqrt(amt)/180))
+      }});
+    });
+
+    cy = cytoscape({
+      container: graphEl, elements: els, wheelSensitivity: 0.2,
+      style:[
+        {selector:"node",style:{
+          "background-color":COL.grey,"width":"data(size)","height":"data(size)",
+          "label":"data(label)","font-size":"9px","color":"#1F2733",
+          "text-valign":"bottom","text-margin-y":4,"border-width":2,"border-color":"#fff","min-zoomed-font-size":6}},
+        {selector:'node[role="subject"]',style:{"background-color":COL.navy,"color":"#fff","text-valign":"center","text-margin-y":0,"font-weight":"bold","font-size":"8px"}},
+        {selector:'node[role="sanctioned"]',style:{"background-color":COL.red}},
+        {selector:'node[role="shell"]',style:{"background-color":COL.amber}},
+        {selector:'node[role="layering"]',style:{"background-color":COL.amber}},
+        {selector:'node[role="intermediary"]',style:{"background-color":COL.amber}},
+        {selector:'node[role="counterparty"]',style:{"background-color":COL.green}},
+        {selector:"node[sanctioned = 1]",style:{"border-width":4,"border-color":COL.red}},
+        {selector:"edge",style:{
+          "width":"data(width)","curve-style":"bezier","target-arrow-shape":"triangle","arrow-scale":1,
+          "line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.85}},
+        {selector:'edge[pattern="circular"]',style:{"line-color":COL.red,"target-arrow-color":COL.red}},
+        {selector:'edge[pattern="sanctioned"]',style:{"line-color":COL.red,"target-arrow-color":COL.red}},
+        {selector:'edge[pattern="shell"]',style:{"line-color":COL.amber,"target-arrow-color":COL.amber}},
+        {selector:'edge[pattern="clean"]',style:{"line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.4}},
+        {selector:".faded",style:{"opacity":0.10,"text-opacity":0.10}}
+      ],
+      layout:{name:"cose",animate:false,padding:34,nodeRepulsion:9000,idealEdgeLength:90,nodeOverlap:14}
+    });
+
+    cy.on("mouseover","node",function(ev){ nodeTip(ev.target); if(!locked) focus(ev.target.closedNeighborhood()); });
+    cy.on("mouseout","node",function(){ hideTip(); if(!locked) clearFocus(); });
+    cy.on("mouseover","edge",function(ev){ edgeTip(ev.target); });
+    cy.on("mouseout","edge",function(){ hideTip(); });
+    cy.on("mousemove",function(ev){ posTip(ev.originalEvent); });
+    cy.on("tap",function(ev){ if(ev.target===cy && locked) clearIsolate(); });
+
+    window._cy = cy;  // exposed for verification
+  }
+
+  // ---- tooltip ----
+  function posTip(ev){ if(!ev) return; tip.style.left=(ev.clientX+16)+"px"; tip.style.top=(ev.clientY+14)+"px"; }
+  function rowt(k,v){ return '<div class="t-row"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>'; }
+  function nodeTip(n){
+    var d=n.data(), flags=[];
+    if(d.subject)flags.push("SUBJECT"); if(d.sanctioned)flags.push("SANCTIONED"); if(d.shell)flags.push("SHELL");
+    var fl = flags.length ? '<div class="t-flag">⚑ '+flags.join(" · ")+'</div>' : "";
+    tip.innerHTML='<div class="t-name">'+esc(d.label)+'</div>'+rowt("Entity ID",d.id)+rowt("Type",d.type)+
+      rowt("Country",d.country)+rowt("KYC",d.kyc)+rowt("Role",d.role)+fl;
+    tip.style.opacity=1;
+  }
+  function edgeTip(e){
+    var d=e.data();
+    tip.innerHTML='<div class="t-name">Payment</div>'+rowt("From",cy.getElementById(d.source).data("label"))+
+      rowt("To",cy.getElementById(d.target).data("label"))+rowt("Amount",gbp(d.amount))+
+      rowt("Pattern",d.pattern==="clean"?"—":d.pattern);
+    tip.style.opacity=1;
+  }
+  function hideTip(){ tip.style.opacity=0; }
+
+  // ---- focus / isolate (cy-null safe) ----
+  function focus(coll){ if(!cy) return; cy.elements().addClass("faded"); coll.removeClass("faded"); }
+  function clearFocus(){ if(cy) cy.elements().removeClass("faded"); }
+  function resetFilterDisplay(){
+    if(frange){ frange.value=0; fval.innerHTML="≥ 0%"; }
+    if(cy) cy.elements().style("display","element");
+  }
+  function isolate(pat){
+    if(!cy) return;
+    resetFilterDisplay();                 // isolate works on the full graph, not the filtered view
+    var e = cy.edges('[pattern="'+pat+'"]');
+    focus(e.union(e.connectedNodes()));
+  }
+  function clearIsolate(){
+    locked=null;
+    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
+    clearFocus();
+  }
+  function toggleIsolate(pat,elm){
+    if(locked===pat){ clearIsolate(); return; }
+    locked=pat;
+    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
+    elm.classList.add("active"); isolate(pat);
+  }
+
+  // ---- filter (view-only; the score never changes) ----
+  var frange=document.getElementById("frange"), fval=document.getElementById("fval");
+  if(frange){ frange.addEventListener("input",function(){
+    var thr=(+frange.value)/100; fval.innerHTML="≥ "+frange.value+"%";
+    if(!cy) return;
+    if(locked) clearIsolate();            // filtering exits an active isolate to avoid conflicting view state
+    cy.batch(function(){
+      cy.nodes().forEach(function(n){ n.style("display",(!n.data("subject") && n.data("contrib")<thr)?"none":"element"); });
+      cy.edges().forEach(function(e){ e.style("display",(e.source().style("display")==="none"||e.target().style("display")==="none")?"none":"element"); });
+    });
+  }); }
+
+  // ---- "Load network" button (cy-null safe) ----
+  window.resetView=function(){
+    if(!cy) return;
+    clearIsolate();
+    resetFilterDisplay();
+    cy.layout({name:"cose",animate:false,padding:34,nodeRepulsion:9000,idealEdgeLength:90,nodeOverlap:14}).run();
+    cy.fit(undefined,30);
+  };
+})();
+</script>
+</body>
+</html>
