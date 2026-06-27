@@ -29,6 +29,15 @@ DEFAULT_MODELS = {
     "openai": "qwen2.5",  # e.g. Ollama's qwen2.5; override with LLM_MODEL
 }
 
+# Models the UI may offer for each provider when LLM_MODELS isn't set. Kept here
+# (not hardcoded in the frontend) so the selectable set is a single server-side
+# allowlist — the regenerate endpoint validates the requested model against it,
+# so an arbitrary model string can never reach the provider.
+DEFAULT_MODEL_CHOICES = {
+    "anthropic": ["claude-opus-4-8"],
+    "openai": ["qwen2.5:3b", "gemma3:4b"],  # both local via Ollama
+}
+
 
 def _complete_anthropic(system: str, user: str, model: str, timeout: float) -> str:
     import anthropic
@@ -96,10 +105,36 @@ def status() -> tuple[str, str | None, bool, str]:
     return provider, model, True, "ok"
 
 
-def complete(system: str, user: str, timeout: float = 30.0) -> tuple[str, str, str]:
-    """Run the configured provider. Returns (text, provider, model); raises on failure."""
-    provider, model, ready, reason = status()
+def available_models() -> list[str]:
+    """The models the UI may offer for the *configured* provider.
+
+    Driven by LLM_MODELS (comma-separated) when set, else the per-provider
+    default list. The resolved default model is always included first, so the
+    UI's current selection is guaranteed to be a valid choice. This list is the
+    server-side allowlist the regenerate endpoint validates against.
+    """
+    provider, default, _ready, _reason = status()
+    raw = (os.environ.get("LLM_MODELS") or "").strip()
+    if raw:
+        models = [m.strip() for m in raw.split(",") if m.strip()]
+    else:
+        models = list(DEFAULT_MODEL_CHOICES.get(provider, []))
+    if default and default not in models:
+        models.insert(0, default)
+    return models
+
+
+def complete(system: str, user: str, timeout: float = 30.0,
+             model: str | None = None) -> tuple[str, str, str]:
+    """Run the configured provider. Returns (text, provider, model); raises on failure.
+
+    `model` overrides the configured default for this one call (used by the
+    model-selection feature); callers are responsible for validating it against
+    available_models() first.
+    """
+    provider, default_model, ready, reason = status()
     if not ready:
         raise RuntimeError(reason)
-    text = PROVIDERS[provider](system, user, model, timeout)
-    return text, provider, model
+    use_model = (model or "").strip() or default_model
+    text = PROVIDERS[provider](system, user, use_model, timeout)
+    return text, provider, use_model

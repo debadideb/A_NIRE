@@ -82,24 +82,33 @@ def _user_prompt(contract: dict) -> str:
     )
 
 
-def generate_rationale(contract: dict) -> tuple[str, str]:
+def generate_rationale(contract: dict, model: str | None = None,
+                       timeout: float = 30.0) -> tuple[str, str]:
     """Return (rationale_text, source).
+
+    `model` (when given) overrides the configured default for this generation —
+    that is how the UI's model selector re-runs the rationale on a different
+    local model. The API layer validates it against providers.available_models()
+    first, so only allow-listed models reach here. `timeout` is widened for that
+    interactive path: a local model the analyst just switched to may be cold
+    (loading several GB into memory) and slower per token than the startup model.
 
     source is "llm:<provider>:<model>" on success, or "fallback:<reason>" /
     "fallback_empty" / "fallback_error" when degraded. Never raises.
     """
-    provider, model, ready, reason = providers.status()
+    provider, default_model, ready, reason = providers.status()
     if not ready:
         return _fallback(contract), f"fallback:{reason}"
 
     try:
-        text, prov, mdl = providers.complete(SYSTEM, _user_prompt(contract), timeout=30.0)
+        text, prov, mdl = providers.complete(
+            SYSTEM, _user_prompt(contract), timeout=timeout, model=model)
         if not text:
             return _fallback(contract), "fallback_empty"
         return text, f"llm:{prov}:{mdl}"
     except Exception as exc:  # noqa: BLE001 — surface type only, then degrade gracefully
         # Log provider/model + exception TYPE only — never the message body, which
         # for an arbitrary OpenAI-compatible endpoint could echo request/secret detail.
-        print(f"[llm] generation failed ({provider}:{model}): {type(exc).__name__}",
-              file=sys.stderr)
+        print(f"[llm] generation failed ({provider}:{model or default_model}): "
+              f"{type(exc).__name__}", file=sys.stderr)
         return _fallback(contract), "fallback_error"

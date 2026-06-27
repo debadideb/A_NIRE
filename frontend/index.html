@@ -85,6 +85,10 @@
   .recbox .soonrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin:6px 0}
   .recbox .reclabel{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:2px 0 5px}
   .recbox .reclabel .aitag{text-transform:none;letter-spacing:0;color:var(--blue);margin-left:6px}
+  .recbox .reclabel .modelsel{font-family:var(--mono);font-size:10px;text-transform:none;letter-spacing:0;
+    margin-left:6px;padding:1px 4px;border:1px solid var(--line);border-radius:5px;background:#fff;
+    color:var(--ink);cursor:pointer;vertical-align:middle}
+  .recbox .reclabel .modelsel:disabled{opacity:.5;cursor:progress}
   .recbox .rationale{font-size:12.5px;line-height:1.5;color:var(--ink);margin:0 0 11px}
   .decision{margin-top:13px;border-top:1px dashed var(--line);padding-top:12px}
   .dactions{display:flex;gap:6px;margin-bottom:8px}
@@ -183,7 +187,9 @@
           </div>
           <div class="recbox">
             <div class="rhead" id="recHead">Recommendation</div>
-            <div class="reclabel">AI rationale <span class="aitag" id="recSource"></span></div>
+            <div class="reclabel">AI rationale
+              <select class="modelsel" id="llmModel" title="LLM model — switch to regenerate" aria-label="LLM model" style="display:none"></select>
+              <span class="aitag" id="recSource"></span></div>
             <div class="rationale" id="recRationale">Generating rationale…</div>
             <div class="decision">
               <div class="reclabel">Record decision</div>
@@ -293,6 +299,7 @@
   fetch("/api/case/" + CASE_ID)
     .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(render).catch(showError);
+  loadModels();  // populate the LLM model selector (independent of the case load)
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -337,9 +344,57 @@
     if(d.recommendation){
       var rr = document.getElementById("recRationale"); if(rr) rr.textContent = d.recommendation.rationale;
       var rs = document.getElementById("recSource");
-      if(rs){ var src = d.recommendation.rationale_source || "";
-        rs.textContent = src.indexOf("llm:") === 0 ? src.slice(4).split(":").slice(1).join(":") : "rule-based"; }
+      if(rs) rs.textContent = srcLabel(d.recommendation.rationale_source);
     }
+  }
+
+  // "llm:openai:gemma3:4b" -> "gemma3:4b"; anything else (fallback:*) -> "rule-based".
+  function srcLabel(src){
+    src = src || "";
+    return src.indexOf("llm:") === 0 ? src.slice(4).split(":").slice(1).join(":") : "rule-based";
+  }
+
+  // Populate the model selector from /api/models and regenerate on change.
+  // Independent of the case fetch; if no provider is ready the selector stays hidden.
+  function loadModels(){
+    var sel = document.getElementById("llmModel"); if(!sel) return;
+    fetch("/api/models").then(function(r){ return r.json(); }).then(function(d){
+      var models = (d && d.models) || [];
+      if(!models.length){ sel.style.display = "none"; return; }
+      sel.innerHTML = "";
+      models.forEach(function(m){
+        var o = document.createElement("option"); o.value = m; o.textContent = m; sel.appendChild(o);
+      });
+      if(d.current && models.indexOf(d.current) >= 0) sel.value = d.current;
+      sel.style.display = "";
+      sel.addEventListener("change", function(){ regenRationale(sel.value); });
+    }).catch(function(){ sel.style.display = "none"; });
+  }
+
+  function regenRationale(model){
+    var sel = document.getElementById("llmModel");
+    var rr = document.getElementById("recRationale");
+    var rs = document.getElementById("recSource");
+    var prevText = rr ? rr.textContent : "", prevSrc = rs ? rs.textContent : "";
+    if(sel) sel.disabled = true;
+    if(rr) rr.textContent = "Regenerating rationale with " + model + "…";
+    if(rs) rs.textContent = "…";
+    fetch("/api/case/" + CASE_ID + "/rationale", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ model: model })
+    }).then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(d){
+        if(rr) rr.textContent = d.rationale;
+        if(rs) rs.textContent = srcLabel(d.rationale_source);
+        if(DATA && DATA.recommendation){
+          DATA.recommendation.rationale = d.rationale;
+          DATA.recommendation.rationale_source = d.rationale_source;
+        }
+        loadAudit();  // the system-recommendation row shows rationale_source
+      }).catch(function(){
+        if(rr) rr.textContent = prevText;   // restore on failure
+        if(rs) rs.textContent = prevSrc || "regen failed";
+      }).then(function(){ if(sel) sel.disabled = false; });
   }
 
   function bindDrivers(d){
