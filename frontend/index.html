@@ -264,6 +264,12 @@
   function nodeSize(n, cmap){ return n.flags.subject ? 56 : Math.round(22 + (cmap[n.id]||0)*95); }
   function edgeWidth(amt){ return Math.max(1.5, Math.min(7, Math.sqrt(amt)/180)); }
   function epat(e){ return e.pattern || "clean"; }
+  // active set for a detector pattern: its edges + their endpoint nodes (shared by all renderers' isolate)
+  function patternSets(graph, pat){
+    var nodes={}, edges={};
+    graph.edges.forEach(function(e){ if(epat(e)===pat){ edges[e.id]=1; nodes[e.source]=1; nodes[e.target]=1; } });
+    return {nodes:nodes, edges:edges};
+  }
 
   // Cytoscape layout (swap from one place; G6 uses antv-dagre directly).
   var GRAPH_LAYOUT = "dagre";
@@ -401,6 +407,7 @@
     if(locked===pat){ clearIsolate(); return; }
     locked = pat;
     if(frange){ frange.value = 0; fval.innerHTML = "≥ 0%"; }  // isolate shows the full pattern; keep the slider in sync
+    if(current.setFilter){ try{ current.setFilter(0); }catch(e){} }  // clear any active filter first (uniform across renderers)
     document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
     elm.classList.add("active");
     try{ current.isolate(pat); }catch(e){}
@@ -530,6 +537,8 @@
           endArrow:true, endArrowSize:(p==='clean'?6:9) } }; });
     var g = new G6.Graph({ container:container, autoResize:true, autoFit:'view', padding:34,
       data:{nodes:nodes, edges:edges},
+      node:{ state:{ inactive:{ opacity:0.12, labelOpacity:0.1 } } },
+      edge:{ state:{ inactive:{ strokeOpacity:0.08, opacity:0.08 } } },
       layout:{ type:'antv-dagre', rankdir:'TB', nodesep:22, ranksep:58 },
       behaviors:['zoom-canvas','drag-canvas','drag-element'] });
     g.render();
@@ -551,6 +560,18 @@
 
     return {
       destroy:function(){ try{ g.destroy(); }catch(e){} },
+      isolate:function(pat){ var a=patternSets(graph,pat); var st={};
+        graph.nodes.forEach(function(n){ st[n.id]=a.nodes[n.id]?[]:['inactive']; });
+        graph.edges.forEach(function(e){ st[e.id]=a.edges[e.id]?[]:['inactive']; });
+        try{ g.setElementState(st); }catch(e){} },
+      clearIsolate:function(){ var st={};
+        graph.nodes.forEach(function(n){ st[n.id]=[]; }); graph.edges.forEach(function(e){ st[e.id]=[]; });
+        try{ g.setElementState(st); }catch(e){} },
+      setFilter:function(thr){ var vis={};
+        graph.nodes.forEach(function(n){ vis[n.id]=(!n.flags.subject && (graph.cmap[n.id]||0)<thr)?'hidden':'visible'; });
+        graph.edges.forEach(function(e){ vis[e.id]=(vis[e.source]==='hidden'||vis[e.target]==='hidden')?'hidden':'visible'; });
+        try{ g.setElementVisibility(vis); }
+        catch(e){ try{ Object.keys(vis).forEach(function(id){ vis[id]==='hidden'?g.hideElement(id):g.showElement(id); }); }catch(_){} } },
       fit:function(){ try{ g.fitView(); }catch(e){ try{ g.render(); }catch(_){} } }
     };
   }
@@ -574,7 +595,8 @@
     graph.nodes.forEach(function(n){
       var L=lvl[n.id]||0, row=per[L], i=row.indexOf(n.id);
       G.addNode(n.id, { label:n.label, x:(i-(row.length-1)/2)*2.4, y:-L*2.2, size:SZ[n.role]||7,
-        color:ROLE_COLOR[n.role]||COL.grey, type_:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role, flags:n.flags });
+        color:ROLE_COLOR[n.role]||COL.grey, type_:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role, flags:n.flags,
+        subjectFlag:!!n.flags.subject, contrib:(graph.cmap[n.id]||0) });
     });
     graph.edges.forEach(function(e){ var p=epat(e);
       G.addEdgeWithKey(e.id, e.source, e.target, { color:EDGE_COLOR[p]||COL.grey, size:(p==='clean'?1:3), type:'arrow', amount:e.amount_gbp, pattern:p }); });
@@ -591,8 +613,29 @@
       s.getMouseCaptor().on('mousemovebody', function(ev){ hooks.pos(ev && ev.original); });
     }catch(e){}
 
-    return { destroy:function(){ try{ s.kill(); }catch(e){} },
-      fit:function(){ try{ s.getCamera().animatedReset(); }catch(e){} } };
+    var mode = {type:"none"};
+    function apply(){
+      s.setSetting("nodeReducer", function(node, data){
+        if(mode.type==="isolate") return mode.nodes[node] ? data : Object.assign({}, data, {color:"#E2E6EB", label:"", size:Math.max(2,(data.size||6)*0.5)});
+        if(mode.type==="filter" && !data.subjectFlag && (data.contrib||0)<mode.thr) return Object.assign({}, data, {hidden:true});
+        return data;
+      });
+      s.setSetting("edgeReducer", function(edge, data){
+        if(mode.type==="isolate") return mode.edges[edge] ? data : Object.assign({}, data, {hidden:true});
+        if(mode.type==="filter"){ var a=G.getNodeAttributes(G.source(edge)), b=G.getNodeAttributes(G.target(edge));
+          if((!a.subjectFlag&&(a.contrib||0)<mode.thr) || (!b.subjectFlag&&(b.contrib||0)<mode.thr)) return Object.assign({}, data, {hidden:true}); }
+        return data;
+      });
+      try{ s.refresh(); }catch(e){}
+    }
+    apply();
+    return {
+      destroy:function(){ try{ s.kill(); }catch(e){} },
+      isolate:function(pat){ var a=patternSets(graph,pat); mode={type:"isolate",nodes:a.nodes,edges:a.edges}; apply(); },
+      clearIsolate:function(){ mode={type:"none"}; apply(); },
+      setFilter:function(thr){ mode = thr>0 ? {type:"filter",thr:thr} : {type:"none"}; apply(); },
+      fit:function(){ try{ s.getCamera().animatedReset(); }catch(e){} }
+    };
   }
 
   // ---------- Neo4j NVL — lazy via esm.sh, WebGL (render + fit) ----------
@@ -608,8 +651,22 @@
     var nvl = new NVL(container, nodes, rels, { layout:'hierarchical', disableTelemetry:true });
     var ids = nodes.map(function(n){ return n.id; });
     setTimeout(function(){ try{ nvl.fit(ids); }catch(e){} }, 700);
-    return { destroy:function(){ try{ nvl.destroy(); }catch(e){} },
-      fit:function(){ try{ nvl.fit(ids); }catch(e){} } };
+    // lookup maps for isolate/filter (NVL has no hide; we re-style via addAndUpdateElementsInGraph)
+    var SUBJ={}, CONTRIB={}; graph.nodes.forEach(function(n){ SUBJ[n.id]=!!n.flags.subject; CONTRIB[n.id]=graph.cmap[n.id]||0; });
+    var EP={}, ES={}; graph.edges.forEach(function(e){ EP[e.id]=epat(e); ES[e.id]={s:e.source,t:e.target}; });
+    var DIM="#E2E6EB", GHOST="#EEF1F4";
+    function push(nodeFn, relFn){ try{ nvl.addAndUpdateElementsInGraph(nodes.map(nodeFn), rels.map(relFn)); }catch(e){} }
+    return {
+      destroy:function(){ try{ nvl.destroy(); }catch(e){} },
+      isolate:function(pat){ var a=patternSets(graph,pat);
+        push(function(n){ return Object.assign({}, n, { color: a.nodes[n.id] ? n.color : DIM }); },
+             function(r){ return Object.assign({}, r, EP[r.id]===pat ? {} : { color:DIM, width:1 }); }); },
+      clearIsolate:function(){ push(function(n){ return Object.assign({}, n); }, function(r){ return Object.assign({}, r); }); },
+      setFilter:function(thr){
+        push(function(n){ var hide=!SUBJ[n.id] && (CONTRIB[n.id]||0)<thr; return Object.assign({}, n, hide ? {color:GHOST, size:2} : {}); },
+             function(r){ var es=ES[r.id]||{}; var hide=(!SUBJ[es.s]&&(CONTRIB[es.s]||0)<thr)||(!SUBJ[es.t]&&(CONTRIB[es.t]||0)<thr); return Object.assign({}, r, hide ? {color:GHOST, width:1} : {}); }); },
+      fit:function(){ try{ nvl.fit(ids); }catch(e){} }
+    };
   }
 
   // ---- decision capture + audit trail ----
