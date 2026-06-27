@@ -26,6 +26,10 @@
   .field label{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
   .field .input{border:1px solid var(--line);border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:13px;min-width:120px}
   .field .input.sm{min-width:64px}
+  .field select.input{min-width:150px;background:#fff;cursor:pointer}
+  .drivers.na{opacity:.5;pointer-events:none}
+  .filter.na{opacity:.45}
+  .filter.na input[type=range]{cursor:not-allowed}
   .btn{background:var(--blue);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:13px;align-self:flex-end;cursor:pointer}
   .casemeta{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);font-family:var(--mono)}
   .casemeta b{color:var(--ink)}
@@ -132,6 +136,8 @@
 <script src="vendor/cytoscape.min.js"></script>
 <script src="vendor/dagre.min.js"></script>
 <script src="vendor/cytoscape-dagre.js"></script>
+<script src="vendor/g6.min.js"></script>
+<script src="vendor/sigma-bundle.js"></script>
 </head>
 <body>
 <div class="page">
@@ -143,6 +149,14 @@
     <div class="controls">
       <div class="field"><label>Customer ID</label><div class="input" id="subjectId">—</div></div>
       <div class="field"><label>Hops</label><div class="input sm">2 &#9662;</div></div>
+      <div class="field"><label>View</label>
+        <select class="input" id="renderer">
+          <option value="cytoscape">Cytoscape · full</option>
+          <option value="g6">G6 (AntV)</option>
+          <option value="sigma">Sigma · WebGL</option>
+          <option value="nvl">Neo4j NVL</option>
+        </select>
+      </div>
       <button class="btn" onclick="resetView()">Load network</button>
       <div class="casemeta" id="caseMeta">subject &nbsp;<b>—</b></div>
     </div>
@@ -229,18 +243,29 @@
 <div id="tip"></div>
 
 <script>
-/* Graph + side panels driven by the live /api/case contract via Cytoscape.js.
-   This replaces ONLY the mockup's hand-coded <svg> graph + its data; the rest
-   of the mockup (layout, CSS, "how to read" panels) is unchanged. The chat box
-   stays presentational (out of scope). */
+/* Graph + side panels driven by the live /api/case contract.
+   The graph is rendered through a PLUGGABLE renderer layer — switch libraries
+   from the "View" dropdown. Renderers:
+     cytoscape (vendored, default, full interactions: isolate + filter)
+     g6        (vendored AntV, layered)
+     sigma     (WebGL, lazy-loaded from esm.sh on select)
+     nvl       (Neo4j NVL, lazy-loaded from esm.sh on select)
+   Side panels, decision capture, audit trail and tooltips are renderer-
+   independent. Each renderer is sandboxed (errors show a message, never crash
+   the page or the switcher). Chat box stays presentational (out of scope). */
 (function(){
   var CASE_ID = "CASE-2026-0001";
   var COL = {red:"#DB4B43",amber:"#E0A124",green:"#2FA66B",navy:"#28344A",grey:"#AEB8C4"};
   var DRIVER_COL = {circular_flow:COL.red, sanctioned_exposure:COL.red, shell_linkage:COL.amber};
 
-  // ── Layout: swap the whole graph arrangement from ONE place ──
-  // dagre (layered top→bottom, the default) needs the vendored cytoscape-dagre;
-  // cose / breadthfirst / concentric are built into Cytoscape (no extra lib).
+  // Shared visual mapping used by every renderer (so all views look consistent).
+  var ROLE_COLOR = {subject:COL.navy, sanctioned:COL.red, shell:COL.amber, layering:COL.amber, intermediary:COL.amber, counterparty:"#CBDED2"};
+  var EDGE_COLOR = {circular:COL.red, sanctioned:COL.red, shell:COL.amber, clean:"#C9CFD6"};
+  function nodeSize(n, cmap){ return n.flags.subject ? 56 : Math.round(22 + (cmap[n.id]||0)*95); }
+  function edgeWidth(amt){ return Math.max(1.5, Math.min(7, Math.sqrt(amt)/180)); }
+  function epat(e){ return e.pattern || "clean"; }
+
+  // Cytoscape layout (swap from one place; G6 uses antv-dagre directly).
   var GRAPH_LAYOUT = "dagre";
   var LAYOUTS = {
     dagre:        {name:"dagre", rankDir:"TB", nodeSep:40, rankSep:72, edgeSep:14, fit:true, padding:30, animate:false},
@@ -254,12 +279,14 @@
 
   var tip = document.getElementById("tip");
   var graphEl = document.getElementById("graph");
-  var cy = null, locked = null;
+  var frange = document.getElementById("frange"), fval = document.getElementById("fval");
+
+  var DATA = null, CMAP = {}, current = null, currentName = "cytoscape", locked = null;
+  try{ var _qv = new URLSearchParams(location.search).get("view"); if(_qv) currentName = _qv; }catch(e){}
 
   fetch("/api/case/" + CASE_ID)
     .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(render)
-    .catch(showError);
+    .then(render).catch(showError);
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -277,8 +304,11 @@
   }
 
   function render(data){
-    bindHeader(data); bindScore(data); bindDrivers(data); buildGraph(data);
+    DATA = data;
+    CMAP = contribMap(data.detectors);
+    bindHeader(data); bindScore(data); bindDrivers(data);
     bindDecision(data); loadAudit();
+    mountRenderer(currentName);
   }
 
   function bindHeader(d){
@@ -299,14 +329,10 @@
     var rh = document.getElementById("recHead");
     if(rh && d.recommendation) rh.textContent = d.recommendation.headline;
     if(d.recommendation){
-      var rr = document.getElementById("recRationale");
-      if(rr) rr.textContent = d.recommendation.rationale;
+      var rr = document.getElementById("recRationale"); if(rr) rr.textContent = d.recommendation.rationale;
       var rs = document.getElementById("recSource");
-      if(rs){
-        var src = d.recommendation.rationale_source || "";
-        // "llm:<provider>:<model>" -> show the model id; otherwise "rule-based"
-        rs.textContent = src.indexOf("llm:") === 0 ? src.slice(4).split(":").slice(1).join(":") : "rule-based";
-      }
+      if(rs){ var src = d.recommendation.rationale_source || "";
+        rs.textContent = src.indexOf("llm:") === 0 ? src.slice(4).split(":").slice(1).join(":") : "rule-based"; }
     }
   }
 
@@ -325,39 +351,113 @@
     });
   }
 
-  // Per-node "contribution" for the view-only filter, DERIVED from the API
-  // detectors (the highest detector weight a node participates in) rather than
-  // re-encoding scoring weights in the frontend.
   function contribMap(detectors){
     var m = {};
-    detectors.forEach(function(det){
-      if(!det.fired) return;
-      det.entities.forEach(function(id){ m[id] = Math.max(m[id]||0, det.contribution); });
-    });
+    detectors.forEach(function(det){ if(!det.fired) return;
+      det.entities.forEach(function(id){ m[id] = Math.max(m[id]||0, det.contribution); }); });
     return m;
   }
 
-  function buildGraph(d){
-    var cmap = contribMap(d.detectors);
-    var els = [];
-    d.graph.nodes.forEach(function(n){
-      els.push({ data:{
-        id:n.id, label:n.label, role:n.role, type:n.type, country:n.jurisdiction, kyc:n.kyc_status,
-        subject:n.flags.subject?1:0, sanctioned:n.flags.sanctioned?1:0, shell:n.flags.shell?1:0,
-        size: n.flags.subject ? 56 : Math.round(22 + (cmap[n.id] || 0) * 95),  // risk-scaled
-        contrib: cmap[n.id] || 0
-      }});
-    });
-    d.graph.edges.forEach(function(e){
-      var amt = e.amount_gbp;
-      els.push({ data:{
-        id:e.id, source:e.source, target:e.target, amount:amt, pattern:e.pattern||"clean",
-        width: Math.max(1.5, Math.min(7, Math.sqrt(amt)/180))
-      }});
-    });
+  // ====================== renderer controller ======================
+  var RENDERERS = { cytoscape: makeCytoscape, g6: makeG6, sigma: makeSigma, nvl: makeNvl };
 
-    cy = cytoscape({
-      container: graphEl, elements: els, wheelSensitivity: 0.2,
+  var MOUNT_SEQ = 0;
+  function mountRenderer(name){
+    if(!Object.prototype.hasOwnProperty.call(RENDERERS, name)) name = "cytoscape";  // own-prop only
+    var s = document.getElementById("renderer"); if(s && s.value !== name) s.value = name;  // sync dropdown to resolved
+    if(current && current.destroy){ try{ current.destroy(); }catch(e){} }
+    current = null; locked = null;
+    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
+    currentName = name;
+    var token = ++MOUNT_SEQ;
+    var isStale = function(){ return token !== MOUNT_SEQ; };  // true once a newer mount started
+    graphEl.innerHTML = '<div class="dload" style="padding:18px">Loading ' + esc(name) + ' view…</div>';
+    updateControlAvailability(false);
+    var graph = { nodes:DATA.graph.nodes, edges:DATA.graph.edges, cmap:CMAP };
+    Promise.resolve().then(function(){ return RENDERERS[name](graphEl, graph, HOOKS, isStale); })
+      .then(function(inst){
+        if(isStale() || !inst){ if(inst && inst.destroy){ try{ inst.destroy(); }catch(e){} } return; }
+        current = inst;
+        updateControlAvailability(true);
+      })
+      .catch(function(err){
+        if(isStale()) return;
+        graphEl.innerHTML = '<div class="dload" style="padding:18px;color:' + COL.red + '">' +
+          esc(name) + ' view failed: ' + esc(err && err.message ? err.message : err) + '</div>';
+        updateControlAvailability(false);
+      });
+  }
+
+  function updateControlAvailability(ready){
+    var iso = ready && current && !!current.isolate;
+    var flt = ready && current && !!current.setFilter;
+    var dv = document.getElementById("drivers"); if(dv) dv.classList.toggle("na", !iso);
+    var fw = document.querySelector(".filter"); if(fw) fw.classList.toggle("na", !flt);
+    if(frange) frange.disabled = !flt;
+  }
+
+  function toggleIsolate(pat, elm){
+    if(!current || !current.isolate) return;
+    if(locked===pat){ clearIsolate(); return; }
+    locked = pat;
+    if(frange){ frange.value = 0; fval.innerHTML = "≥ 0%"; }  // isolate shows the full pattern; keep the slider in sync
+    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
+    elm.classList.add("active");
+    try{ current.isolate(pat); }catch(e){}
+  }
+  function clearIsolate(){
+    locked = null;
+    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
+    if(current && current.clearIsolate){ try{ current.clearIsolate(); }catch(e){} }
+  }
+
+  if(frange){ frange.addEventListener("input", function(){
+    fval.innerHTML = "≥ " + frange.value + "%";
+    if(current && current.setFilter){ if(locked) clearIsolate(); try{ current.setFilter((+frange.value)/100); }catch(e){} }
+  }); }
+
+  window.resetView = function(){
+    if(frange){ frange.value = 0; fval.innerHTML = "≥ 0%"; }
+    clearIsolate();
+    if(current && current.fit){ try{ current.fit(); }catch(e){} }
+  };
+
+  var sel = document.getElementById("renderer");
+  if(sel){ sel.value = currentName; sel.addEventListener("change", function(){ if(DATA) mountRenderer(sel.value); }); }
+
+  // ====================== shared tooltip (data-object based) ======================
+  function posTip(ev){ if(!ev) return; tip.style.left=(ev.clientX+16)+"px"; tip.style.top=(ev.clientY+14)+"px"; }
+  function rowt(k,v){ return '<div class="t-row"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>'; }
+  function showNodeTip(d){
+    var f = d.flags || {}, flags = [];
+    if(f.subject) flags.push("SUBJECT"); if(f.sanctioned) flags.push("SANCTIONED"); if(f.shell) flags.push("SHELL");
+    var fl = flags.length ? '<div class="t-flag">⚑ '+flags.join(" · ")+'</div>' : "";
+    tip.innerHTML = '<div class="t-name">'+esc(d.label)+'</div>'+rowt("Entity ID",d.id)+rowt("Type",d.type)+
+      rowt("Country",d.country)+rowt("KYC",d.kyc)+rowt("Role",d.role)+fl;
+    tip.style.opacity = 1;
+  }
+  function showEdgeTip(d){
+    tip.innerHTML = '<div class="t-name">Payment</div>'+rowt("From",d.fromLabel)+rowt("To",d.toLabel)+
+      rowt("Amount",gbp(d.amount))+rowt("Pattern",(d.pattern==="clean"||!d.pattern)?"—":d.pattern);
+    tip.style.opacity = 1;
+  }
+  function hideTip(){ tip.style.opacity = 0; }
+  var HOOKS = { node:showNodeTip, edge:showEdgeTip, hide:hideTip, pos:posTip, bgtap:function(){ if(locked) clearIsolate(); } };
+
+  // ====================== RENDERERS ======================
+
+  // ---------- Cytoscape (default, full: isolate + filter) ----------
+  function makeCytoscape(container, graph, hooks){
+    var els = [];
+    graph.nodes.forEach(function(n){
+      els.push({ data:{ id:n.id, label:n.label, role:n.role, type:n.type, country:n.jurisdiction, kyc:n.kyc_status,
+        subject:n.flags.subject?1:0, sanctioned:n.flags.sanctioned?1:0, shell:n.flags.shell?1:0,
+        size: nodeSize(n, graph.cmap), contrib: graph.cmap[n.id]||0 } });
+    });
+    graph.edges.forEach(function(e){
+      els.push({ data:{ id:e.id, source:e.source, target:e.target, amount:e.amount_gbp, pattern:epat(e), width: edgeWidth(e.amount_gbp) } });
+    });
+    var cy = cytoscape({ container:container, elements:els, wheelSensitivity:0.2,
       style:[
         {selector:"node",style:{
           "background-color":COL.grey,"width":"data(size)","height":"data(size)",
@@ -381,17 +481,135 @@
         {selector:'edge[pattern="clean"]',style:{"line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.3}},
         {selector:".faded",style:{"opacity":0.08,"text-opacity":0.08}}
       ],
-      layout: layoutConfig()
+      layout: layoutConfig() });
+
+    cy.on("mouseover","node",function(ev){ var d=ev.target.data();
+      hooks.node({id:d.id,label:d.label,type:d.type,country:d.country,kyc:d.kyc,role:d.role,
+        flags:{subject:d.subject,sanctioned:d.sanctioned,shell:d.shell}});
+      if(!locked){ cy.elements().addClass("faded"); ev.target.closedNeighborhood().removeClass("faded"); } });
+    cy.on("mouseout","node",function(){ hooks.hide(); if(!locked) cy.elements().removeClass("faded"); });
+    cy.on("mouseover","edge",function(ev){ var d=ev.target.data();
+      hooks.edge({fromLabel:cy.getElementById(d.source).data("label"), toLabel:cy.getElementById(d.target).data("label"), amount:d.amount, pattern:d.pattern}); });
+    cy.on("mouseout","edge",function(){ hooks.hide(); });
+    cy.on("mousemove",function(ev){ hooks.pos(ev.originalEvent); });
+    cy.on("tap",function(ev){ if(ev.target===cy) hooks.bgtap(); });
+    window._cy = cy;
+
+    return {
+      destroy:function(){ cy.destroy(); if(window._cy===cy) window._cy=null; },
+      isolate:function(pat){ cy.elements().style("display","element");
+        var e = cy.edges('[pattern="'+pat+'"]'); var coll = e.union(e.connectedNodes());
+        cy.elements().addClass("faded"); coll.removeClass("faded"); },
+      clearIsolate:function(){ cy.elements().removeClass("faded"); },
+      setFilter:function(thr){ cy.batch(function(){
+        cy.nodes().forEach(function(n){ n.style("display",(!n.data("subject")&&n.data("contrib")<thr)?"none":"element"); });
+        cy.edges().forEach(function(e){ e.style("display",(e.source().style("display")==="none"||e.target().style("display")==="none")?"none":"element"); }); }); },
+      fit:function(){ cy.layout(layoutConfig()).run(); cy.fit(undefined,30); }
+    };
+  }
+
+  // ---------- G6 (AntV) — vendored, layered ----------
+  function makeG6(container, graph, hooks){
+    if(!window.G6) throw new Error("G6 library not loaded");
+    container.innerHTML = "";
+    var SZ = {subject:50, sanctioned:42, layering:40, intermediary:38, shell:30, counterparty:20};
+    var nodes = graph.nodes.map(function(n){
+      return { id:n.id,
+        data:{ label:n.label, type:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role,
+               subject:n.flags.subject, sanctioned:n.flags.sanctioned, shell:n.flags.shell },
+        style:{ fill: ROLE_COLOR[n.role]||COL.grey, size: SZ[n.role]||22,
+          stroke: n.flags.sanctioned?COL.red:'#fff', lineWidth: n.flags.sanctioned?3:2,
+          labelText:n.label, labelFontSize:11, labelFontWeight:600, labelPlacement:'bottom',
+          labelBackground:true, labelBackgroundFill:'#fff', labelBackgroundOpacity:0.78, labelBackgroundRadius:3,
+          labelMaxWidth:96, labelWordWrap:true, labelFill:'#1F2733',
+          opacity: n.role==='counterparty'?0.78:1 } };
     });
+    var edges = graph.edges.map(function(e){ var p=epat(e);
+      return { id:e.id, source:e.source, target:e.target, data:{ pattern:p, amount:e.amount_gbp },
+        style:{ stroke: EDGE_COLOR[p]||COL.grey, lineWidth:(p==='clean'?1:2.6), strokeOpacity:(p==='clean'?0.45:1),
+          endArrow:true, endArrowSize:(p==='clean'?6:9) } }; });
+    var g = new G6.Graph({ container:container, autoResize:true, autoFit:'view', padding:34,
+      data:{nodes:nodes, edges:edges},
+      layout:{ type:'antv-dagre', rankdir:'TB', nodesep:22, ranksep:58 },
+      behaviors:['zoom-canvas','drag-canvas','drag-element'] });
+    g.render();
 
-    cy.on("mouseover","node",function(ev){ nodeTip(ev.target); if(!locked) focus(ev.target.closedNeighborhood()); });
-    cy.on("mouseout","node",function(){ hideTip(); if(!locked) clearFocus(); });
-    cy.on("mouseover","edge",function(ev){ edgeTip(ev.target); });
-    cy.on("mouseout","edge",function(){ hideTip(); });
-    cy.on("mousemove",function(ev){ posTip(ev.originalEvent); });
-    cy.on("tap",function(ev){ if(ev.target===cy && locked) clearIsolate(); });
+    function nd(id){ try{ return g.getNodeData(id)||{}; }catch(e){ return {}; } }
+    function evId(ev){ return ev && ev.target && (ev.target.id != null ? ev.target.id : (ev.target.config && ev.target.config.id)); }
+    try{
+      g.on('node:pointerenter', function(ev){ var d=(nd(evId(ev)).data)||{};
+        hooks.node({id:evId(ev),label:d.label,type:d.type,country:d.country,kyc:d.kyc,role:d.role,
+          flags:{subject:d.subject,sanctioned:d.sanctioned,shell:d.shell}}); });
+      g.on('node:pointerleave', function(){ hooks.hide(); });
+      g.on('edge:pointerenter', function(ev){ var e; try{ e=g.getEdgeData(evId(ev))||{}; }catch(_){ e={}; }
+        var s=nd(e.source).data||{}, t=nd(e.target).data||{}, ed=e.data||{};
+        hooks.edge({fromLabel:s.label, toLabel:t.label, amount:ed.amount, pattern:ed.pattern}); });
+      g.on('edge:pointerleave', function(){ hooks.hide(); });
+      g.on('pointermove', function(ev){ hooks.pos(ev && (ev.nativeEvent||ev.originalEvent||ev.client && ev)); });
+      g.on('canvas:click', function(){ hooks.bgtap(); });
+    }catch(e){}
 
-    window._cy = cy;  // exposed for verification
+    return {
+      destroy:function(){ try{ g.destroy(); }catch(e){} },
+      fit:function(){ try{ g.fitView(); }catch(e){ try{ g.render(); }catch(_){} } }
+    };
+  }
+
+  // ---------- Sigma + graphology — lazy via esm.sh, WebGL ----------
+  function makeSigma(container, graph, hooks){
+    if(!window.SigmaLib) throw new Error("Sigma bundle not loaded");
+    container.innerHTML = "";
+    var Sigma = window.SigmaLib.Sigma, Graph = window.SigmaLib.Graph;
+    var SZ = {subject:16, sanctioned:13, layering:12, intermediary:11, shell:10, counterparty:7};
+
+    // manual layered positions: BFS levels from the subject
+    var adj = {}; graph.nodes.forEach(function(n){ adj[n.id]=[]; });
+    graph.edges.forEach(function(e){ adj[e.source].push(e.target); adj[e.target].push(e.source); });
+    var subject = (graph.nodes.filter(function(n){return n.flags.subject;})[0]||graph.nodes[0]).id;
+    var lvl = {}; lvl[subject]=0; var q=[subject];
+    while(q.length){ var u=q.shift(); adj[u].forEach(function(v){ if(lvl[v]===undefined){ lvl[v]=lvl[u]+1; q.push(v); } }); }
+    var per = {}; graph.nodes.forEach(function(n){ var L=lvl[n.id]||0; (per[L]=per[L]||[]).push(n.id); });
+
+    var G = new Graph({type:'directed'});
+    graph.nodes.forEach(function(n){
+      var L=lvl[n.id]||0, row=per[L], i=row.indexOf(n.id);
+      G.addNode(n.id, { label:n.label, x:(i-(row.length-1)/2)*2.4, y:-L*2.2, size:SZ[n.role]||7,
+        color:ROLE_COLOR[n.role]||COL.grey, type_:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role, flags:n.flags });
+    });
+    graph.edges.forEach(function(e){ var p=epat(e);
+      G.addEdgeWithKey(e.id, e.source, e.target, { color:EDGE_COLOR[p]||COL.grey, size:(p==='clean'?1:3), type:'arrow', amount:e.amount_gbp, pattern:p }); });
+
+    var s = new Sigma(G, container, { defaultEdgeType:'arrow', renderEdgeLabels:false,
+      labelRenderedSizeThreshold:0, labelColor:{color:'#1F2733'}, labelSize:12, labelWeight:'600' });
+    try{
+      s.on('enterNode', function(ev){ var a=G.getNodeAttributes(ev.node);
+        hooks.node({id:ev.node,label:a.label,type:a.type_,country:a.country,kyc:a.kyc,role:a.role,flags:a.flags}); });
+      s.on('leaveNode', function(){ hooks.hide(); });
+      s.on('enterEdge', function(ev){ var a=G.getEdgeAttributes(ev.edge);
+        hooks.edge({fromLabel:G.getNodeAttribute(G.source(ev.edge),'label'), toLabel:G.getNodeAttribute(G.target(ev.edge),'label'), amount:a.amount, pattern:a.pattern}); });
+      s.on('leaveEdge', function(){ hooks.hide(); });
+      s.getMouseCaptor().on('mousemovebody', function(ev){ hooks.pos(ev && ev.original); });
+    }catch(e){}
+
+    return { destroy:function(){ try{ s.kill(); }catch(e){} },
+      fit:function(){ try{ s.getCamera().animatedReset(); }catch(e){} } };
+  }
+
+  // ---------- Neo4j NVL — lazy via esm.sh, WebGL (render + fit) ----------
+  async function makeNvl(container, graph, hooks, isStale){
+    container.innerHTML = "";
+    var mod = await import("https://esm.sh/@neo4j-nvl/base@0.3.6");
+    if(isStale && isStale()) return null;   // switched away during the async import — don't touch the container
+    var NVL = mod.NVL || mod.default;
+    if(!NVL) throw new Error("NVL export not found");
+    var NSZ = {subject:42, sanctioned:34, layering:32, intermediary:30, shell:26, counterparty:18};
+    var nodes = graph.nodes.map(function(n){ return { id:n.id, caption:n.label, color: ROLE_COLOR[n.role]||COL.grey, size: NSZ[n.role]||18 }; });
+    var rels = graph.edges.map(function(e){ var p=epat(e); return { id:e.id, from:e.source, to:e.target, color: EDGE_COLOR[p]||COL.grey, width:(p==='clean'?1:3) }; });
+    var nvl = new NVL(container, nodes, rels, { layout:'hierarchical', disableTelemetry:true });
+    var ids = nodes.map(function(n){ return n.id; });
+    setTimeout(function(){ try{ nvl.fit(ids); }catch(e){} }, 700);
+    return { destroy:function(){ try{ nvl.destroy(); }catch(e){} },
+      fit:function(){ try{ nvl.fit(ids); }catch(e){} } };
   }
 
   // ---- decision capture + audit trail ----
@@ -402,10 +620,8 @@
     var btns = document.querySelectorAll(".dact");
     btns.forEach(function(b){
       b.classList.toggle("sel", b.getAttribute("data-act") === chosenAction);
-      b.onclick = function(){
-        chosenAction = b.getAttribute("data-act");
-        btns.forEach(function(x){ x.classList.toggle("sel", x === b); });
-      };
+      b.onclick = function(){ chosenAction = b.getAttribute("data-act");
+        btns.forEach(function(x){ x.classList.toggle("sel", x === b); }); };
     });
     var save = document.getElementById("decSave");
     if(save) save.onclick = saveDecision;
@@ -416,117 +632,34 @@
     var msg = document.getElementById("decMsg");
     var save = document.getElementById("decSave");
     save.disabled = true; msg.style.color = "var(--muted)"; msg.textContent = "Saving…";
-    fetch("/api/case/" + CASE_ID + "/decision", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({action: chosenAction, decided_by: by, notes: notes}),
-    }).then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(function(res){
-        msg.style.color = COL.green; msg.textContent = "Decision recorded ✓";
-        document.getElementById("decNotes").value = "";
-        renderAudit(res.audit);
-      }).catch(function(e){ msg.style.color = COL.red; msg.textContent = "Failed: " + e.message; })
+    fetch("/api/case/" + CASE_ID + "/decision", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({action: chosenAction, decided_by: by, notes: notes}) })
+      .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(res){ msg.style.color = COL.green; msg.textContent = "Decision recorded ✓";
+        document.getElementById("decNotes").value = ""; renderAudit(res.audit); })
+      .catch(function(e){ msg.style.color = COL.red; msg.textContent = "Failed: " + e.message; })
       .then(function(){ save.disabled = false; });
   }
-  function loadAudit(){
-    fetch("/api/case/" + CASE_ID + "/audit")
-      .then(function(r){ return r.json(); }).then(renderAudit).catch(function(){});
-  }
+  function loadAudit(){ fetch("/api/case/" + CASE_ID + "/audit").then(function(r){ return r.json(); }).then(renderAudit).catch(function(){}); }
   function renderAudit(audit){
     var box = document.getElementById("auditList"); if(!box || !audit) return;
     box.innerHTML = "";
     var rec = audit.recommendation;
-    box.appendChild(auditItem("System recommendation", rec.action,
-      "score " + rec.score + " · " + rec.rationale_source, "", true));
-    var decisions = (audit.decisions || []).slice().reverse();  // newest first
-    decisions.forEach(function(x){
-      box.appendChild(auditItem(x.decided_by, x.action,
-        fmtTime(x.created_at) + " · @" + x.score_total + " " + x.band, x.notes, false));
-    });
-    if(!decisions.length){
-      var none = document.createElement("div");
-      none.className = "aitem"; none.style.color = "var(--muted)";
-      none.textContent = "No analyst decision recorded yet.";
-      box.appendChild(none);
-    }
+    box.appendChild(auditItem("System recommendation", rec.action, "score " + rec.score + " · " + rec.rationale_source, "", true));
+    var decisions = (audit.decisions || []).slice().reverse();
+    decisions.forEach(function(x){ box.appendChild(auditItem(x.decided_by, x.action, fmtTime(x.created_at) + " · @" + x.score_total + " " + x.band, x.notes, false)); });
+    if(!decisions.length){ var none = document.createElement("div"); none.className = "aitem"; none.style.color = "var(--muted)";
+      none.textContent = "No analyst decision recorded yet."; box.appendChild(none); }
   }
   function auditItem(who, action, meta, notes, isSys){
-    var el = document.createElement("div");
-    el.className = "aitem" + (isSys ? " sys" : "");
+    var el = document.createElement("div"); el.className = "aitem" + (isSys ? " sys" : "");
     var color = ACT_COLOR[action] || COL.grey;
-    el.innerHTML =
-      '<div class="ahead"><span class="who">' + esc(who) + '</span>' +
+    el.innerHTML = '<div class="ahead"><span class="who">' + esc(who) + '</span>' +
       '<span class="abadge" style="background:' + color + '">' + esc(action) + '</span></div>' +
-      '<div class="ameta">' + esc(meta) + '</div>' +
-      (notes ? '<div class="anotes">' + esc(notes) + '</div>' : '');
+      '<div class="ameta">' + esc(meta) + '</div>' + (notes ? '<div class="anotes">' + esc(notes) + '</div>' : '');
     return el;
   }
   function fmtTime(iso){ try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
-
-  // ---- tooltip ----
-  function posTip(ev){ if(!ev) return; tip.style.left=(ev.clientX+16)+"px"; tip.style.top=(ev.clientY+14)+"px"; }
-  function rowt(k,v){ return '<div class="t-row"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>'; }
-  function nodeTip(n){
-    var d=n.data(), flags=[];
-    if(d.subject)flags.push("SUBJECT"); if(d.sanctioned)flags.push("SANCTIONED"); if(d.shell)flags.push("SHELL");
-    var fl = flags.length ? '<div class="t-flag">⚑ '+flags.join(" · ")+'</div>' : "";
-    tip.innerHTML='<div class="t-name">'+esc(d.label)+'</div>'+rowt("Entity ID",d.id)+rowt("Type",d.type)+
-      rowt("Country",d.country)+rowt("KYC",d.kyc)+rowt("Role",d.role)+fl;
-    tip.style.opacity=1;
-  }
-  function edgeTip(e){
-    var d=e.data();
-    tip.innerHTML='<div class="t-name">Payment</div>'+rowt("From",cy.getElementById(d.source).data("label"))+
-      rowt("To",cy.getElementById(d.target).data("label"))+rowt("Amount",gbp(d.amount))+
-      rowt("Pattern",d.pattern==="clean"?"—":d.pattern);
-    tip.style.opacity=1;
-  }
-  function hideTip(){ tip.style.opacity=0; }
-
-  // ---- focus / isolate (cy-null safe) ----
-  function focus(coll){ if(!cy) return; cy.elements().addClass("faded"); coll.removeClass("faded"); }
-  function clearFocus(){ if(cy) cy.elements().removeClass("faded"); }
-  function resetFilterDisplay(){
-    if(frange){ frange.value=0; fval.innerHTML="≥ 0%"; }
-    if(cy) cy.elements().style("display","element");
-  }
-  function isolate(pat){
-    if(!cy) return;
-    resetFilterDisplay();                 // isolate works on the full graph, not the filtered view
-    var e = cy.edges('[pattern="'+pat+'"]');
-    focus(e.union(e.connectedNodes()));
-  }
-  function clearIsolate(){
-    locked=null;
-    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
-    clearFocus();
-  }
-  function toggleIsolate(pat,elm){
-    if(locked===pat){ clearIsolate(); return; }
-    locked=pat;
-    document.querySelectorAll(".driver").forEach(function(x){ x.classList.remove("active"); });
-    elm.classList.add("active"); isolate(pat);
-  }
-
-  // ---- filter (view-only; the score never changes) ----
-  var frange=document.getElementById("frange"), fval=document.getElementById("fval");
-  if(frange){ frange.addEventListener("input",function(){
-    var thr=(+frange.value)/100; fval.innerHTML="≥ "+frange.value+"%";
-    if(!cy) return;
-    if(locked) clearIsolate();            // filtering exits an active isolate to avoid conflicting view state
-    cy.batch(function(){
-      cy.nodes().forEach(function(n){ n.style("display",(!n.data("subject") && n.data("contrib")<thr)?"none":"element"); });
-      cy.edges().forEach(function(e){ e.style("display",(e.source().style("display")==="none"||e.target().style("display")==="none")?"none":"element"); });
-    });
-  }); }
-
-  // ---- "Load network" button (cy-null safe) ----
-  window.resetView=function(){
-    if(!cy) return;
-    clearIsolate();
-    resetFilterDisplay();
-    cy.layout(layoutConfig()).run();
-    cy.fit(undefined,30);
-  };
 })();
 </script>
 </body>
