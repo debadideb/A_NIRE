@@ -52,6 +52,19 @@
 
   .hint{position:absolute;right:14px;top:12px;font-size:11px;color:var(--muted);font-family:var(--mono);background:rgba(255,255,255,.8);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
 
+  /* shared legend — one DOM element for ALL four renderers (top-left; clears the
+     top-right hint, bottom-left filter and bottom-right G6 minimap). Built once
+     from ROLE_COLOR + EDGE_COLOR so it can never drift from the graph colours. */
+  #legend{position:absolute;left:14px;top:12px;z-index:6;background:rgba(255,255,255,.93);
+    border:1px solid var(--line);border-radius:9px;padding:8px 11px 9px;box-shadow:0 2px 8px rgba(20,30,45,.08);
+    font-family:var(--mono);font-size:10.5px;color:var(--muted);max-width:170px}
+  #legend .lgt{font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;font-size:8.5px;margin:7px 0 3px}
+  #legend .lgt:first-child{margin-top:0}
+  #legend .lrow{display:flex;flex-wrap:wrap;gap:3px 11px}
+  #legend .li{display:flex;align-items:center;gap:5px;white-space:nowrap}
+  #legend .ls{width:10px;height:10px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.08)}
+  #legend .ll{width:17px;flex:none;border-top:3px solid}
+
   .right{display:flex;flex-direction:column}
   .panel{padding:16px;border-bottom:1px solid var(--line)}
   .panel:last-child{border-bottom:none;flex:1}
@@ -168,6 +181,7 @@
     <div class="body">
       <div class="canvas-wrap" id="cv">
         <span class="hint">hover &middot; drag &middot; click driver</span>
+        <div id="legend"></div>
         <div id="graph"></div>
         <div class="filter">
           <div class="ftop"><span>Filter &middot; contribution</span><b id="fval">&#8805; 0%</b></div>
@@ -277,10 +291,25 @@
     return {nodes:nodes, edges:edges};
   }
 
+  // Shared legend, built ONCE from the same colour maps every renderer uses, so it
+  // can never drift from the graph. Renderer-independent — visible for all four views.
+  function buildLegend(){
+    var box = document.getElementById("legend"); if(!box) return;
+    var roles = [["Subject","subject"],["Sanctioned","sanctioned"],["Shell","shell"],["Layering","layering"],["Counterparty","counterparty"]];
+    var pats  = [["Circular flow","circular"],["Sanctioned","sanctioned"],["Shell link","shell"],["Clean","clean"]];
+    var h = '<div class="lgt">Entity</div><div class="lrow">';
+    roles.forEach(function(r){ h += '<span class="li"><span class="ls" style="background:'+(ROLE_COLOR[r[1]]||COL.grey)+'"></span>'+r[0]+'</span>'; });
+    h += '</div><div class="lgt">Money flow</div><div class="lrow">';
+    pats.forEach(function(p){ h += '<span class="li"><span class="ll" style="border-top-color:'+(EDGE_COLOR[p[1]]||COL.grey)+'"></span>'+p[0]+'</span>'; });
+    box.innerHTML = h + '</div>';
+  }
+
   // Cytoscape layout (swap from one place; G6 uses antv-dagre directly).
   var GRAPH_LAYOUT = "dagre";
   var LAYOUTS = {
-    dagre:        {name:"dagre", rankDir:"TB", nodeSep:40, rankSep:72, edgeSep:14, fit:true, padding:30, animate:false},
+    // LR = "follow the money" left→right (subject → layering → terminal/sanctioned).
+    // Shared by Cytoscape via layoutConfig(); G6 + Sigma set their own direction to match.
+    dagre:        {name:"dagre", rankDir:"LR", nodeSep:34, rankSep:86, edgeSep:14, fit:true, padding:30, animate:false},
     breadthfirst: {name:"breadthfirst", directed:true, roots:"node[subject = 1]", spacingFactor:1.05, fit:true, padding:30, animate:false},
     concentric:   {name:"concentric", fit:true, padding:30, minNodeSpacing:34, animate:false,
                    concentric:function(n){ return Math.round((n.data("contrib")||0)*100) + (n.data("subject") ? 100 : 0); },
@@ -300,6 +329,7 @@
     .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(render).catch(showError);
   loadModels();  // populate the LLM model selector (independent of the case load)
+  buildLegend(); // shared graph legend — renderer-independent, built once
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -533,12 +563,16 @@
         {selector:'node[role="layering"]',style:{"background-color":COL.amber}},
         {selector:'node[role="intermediary"]',style:{"background-color":COL.amber}},
         {selector:'node[role="counterparty"]',style:{"background-color":"#CBDED2","border-width":1,"opacity":0.7}},
-        {selector:"node[sanctioned = 1]",style:{"border-width":4,"border-color":COL.red}},
+        {selector:"node[sanctioned = 1]",style:{"border-width":4,"border-color":COL.red,
+          "underlay-color":COL.red,"underlay-padding":10,"underlay-opacity":0.2}},   // soft red glow, flagged nodes only
         {selector:"edge",style:{
-          "width":"data(width)","curve-style":"bezier","target-arrow-shape":"triangle","arrow-scale":1,
+          // unbundled-bezier + control points = a smooth cubic bow on every edge
+          // (matches the G6 cubic look); curve-style:bezier left edges mostly straight.
+          "width":"data(width)","curve-style":"unbundled-bezier","control-point-distances":[42],"control-point-weights":[0.5],
+          "target-arrow-shape":"triangle","arrow-scale":1,
           "line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.8}},
-        {selector:'edge[pattern="circular"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2}},
-        {selector:'edge[pattern="sanctioned"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2}},
+        {selector:'edge[pattern="circular"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2,"line-style":"dashed","line-dash-pattern":[10,6]}},
+        {selector:'edge[pattern="sanctioned"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2,"line-style":"dashed","line-dash-pattern":[10,6]}},
         {selector:'edge[pattern="shell"]',style:{"line-color":COL.amber,"target-arrow-color":COL.amber,"opacity":0.95,"arrow-scale":1.1}},
         {selector:'edge[pattern="clean"]',style:{"line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.3}},
         {selector:".faded",style:{"opacity":0.08,"text-opacity":0.08}}
@@ -557,8 +591,16 @@
     cy.on("tap",function(ev){ if(ev.target===cy) hooks.bgtap(); });
     window._cy = cy;
 
+    // Marching-ants flow along the red path: animate line-dash-offset in ONE rAF
+    // (~22fps). The selection is cached; the loop is cancelled in destroy() (no leak).
+    var _raf=0, _off=0, _last=0;
+    var antSel = cy.edges('[pattern="circular"],[pattern="sanctioned"]');
+    function antTick(ts){ _raf = requestAnimationFrame(antTick);
+      if(ts-_last < 45) return; _last=ts; _off -= 1; antSel.style("line-dash-offset", _off); }
+    if(antSel.length) _raf = requestAnimationFrame(antTick);
+
     return {
-      destroy:function(){ cy.destroy(); if(window._cy===cy) window._cy=null; },
+      destroy:function(){ if(_raf) cancelAnimationFrame(_raf); _raf=0; cy.destroy(); if(window._cy===cy) window._cy=null; },
       isolate:function(pat){ cy.elements().style("display","element");
         var e = cy.edges('[pattern="'+pat+'"]'); var coll = e.union(e.connectedNodes());
         cy.elements().addClass("faded"); coll.removeClass("faded"); },
@@ -570,33 +612,90 @@
     };
   }
 
-  // ---------- G6 (AntV) — vendored, layered ----------
+  // ---------- G6 (AntV) — vendored; the polished "showcase" view ----------
+  // Every effect below uses a feature ALREADY in the vendored v5 bundle (verified
+  // against frontend/vendor/g6.min.js): hover-activate behavior, cubic-horizontal
+  // edges, node halo + badges, the minimap plugin, and lineDash animation. Each is
+  // gated by an FX toggle so it can be switched off without touching anything else.
   function makeG6(container, graph, hooks){
     if(!window.G6) throw new Error("G6 library not loaded");
     container.innerHTML = "";
+    var FX = { hover:1, halo:1, ants:1, pulse:0, badge:1, minimap:1 };  // pulse off: cheap budget goes to the ants; static halo already glows
     var SZ = {subject:50, sanctioned:42, layering:40, intermediary:38, shell:30, counterparty:20};
     var nodes = graph.nodes.map(function(n){
+      var contrib = graph.cmap[n.id]||0;
+      var st = { fill: ROLE_COLOR[n.role]||COL.grey, size: SZ[n.role]||22,
+        stroke: n.flags.sanctioned?COL.red:'#fff', lineWidth: n.flags.sanctioned?3:2,
+        labelText:n.label, labelFontSize:11, labelFontWeight:600, labelPlacement:'right',  // LR flow → labels to the right
+        labelBackground:true, labelBackgroundFill:'#fff', labelBackgroundOpacity:0.78, labelBackgroundRadius:3,
+        labelMaxWidth:100, labelWordWrap:true, labelFill:'#1F2733',  // wrap folds long names (this build has no labelMaxLines)
+        // Counterparty labels start hidden (noise) and are revealed only when the node
+        // is in a hovered ('active') neighbourhood; risk/subject labels always show.
+        labelOpacity: n.role==='counterparty'?0:1,
+        opacity: n.role==='counterparty'?0.78:1 };
+      // Risk glow on screening hits only (halos are render-heavy — gate to flagged).
+      if(FX.halo && n.flags.sanctioned){ st.halo=true; st.haloStroke=COL.red; st.haloLineWidth=8; st.haloStrokeOpacity=0.3; }
+      // Risk badge on every score-contributing node except the subject.
+      if(FX.badge && contrib>0 && !n.flags.subject){
+        st.badges=[{ text:'⚠', placement:'right-top', fontSize:8, fill:'#fff',
+          backgroundFill: contrib>=0.28?COL.red:COL.amber, padding:[1,3] }]; }
       return { id:n.id,
         data:{ label:n.label, type:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role,
                subject:n.flags.subject, sanctioned:n.flags.sanctioned, shell:n.flags.shell },
-        style:{ fill: ROLE_COLOR[n.role]||COL.grey, size: SZ[n.role]||22,
-          stroke: n.flags.sanctioned?COL.red:'#fff', lineWidth: n.flags.sanctioned?3:2,
-          labelText:n.label, labelFontSize:11, labelFontWeight:600, labelPlacement:'bottom',
-          labelBackground:true, labelBackgroundFill:'#fff', labelBackgroundOpacity:0.78, labelBackgroundRadius:3,
-          labelMaxWidth:96, labelWordWrap:true, labelFill:'#1F2733',
-          opacity: n.role==='counterparty'?0.78:1 } };
+        style: st };
     });
-    var edges = graph.edges.map(function(e){ var p=epat(e);
-      return { id:e.id, source:e.source, target:e.target, data:{ pattern:p, amount:e.amount_gbp },
-        style:{ stroke: EDGE_COLOR[p]||COL.grey, lineWidth:(p==='clean'?1:2.6), strokeOpacity:(p==='clean'?0.45:1),
-          endArrow:true, endArrowSize:(p==='clean'?6:9) } }; });
-    var g = new G6.Graph({ container:container, autoResize:true, autoFit:'view', padding:34,
+    var edges = graph.edges.map(function(e){ var p=epat(e); var red=(p==='circular'||p==='sanctioned');
+      var st = { stroke: EDGE_COLOR[p]||COL.grey, lineWidth:(p==='clean'?1:(red?3:2.6)), strokeOpacity:(p==='clean'?0.45:1),
+        endArrow:true, endArrowSize:(p==='clean'?6:9) };
+      if(red){ st.lineDash=[10,8]; st.lineDashOffset=0; }   // base dash → animated below (marching ants)
+      return { id:e.id, source:e.source, target:e.target, data:{ pattern:p, amount:e.amount_gbp }, style: st }; });
+
+    var g = new G6.Graph({ container:container, autoResize:true, autoFit:'view', padding:[24,72,24,28],
       data:{nodes:nodes, edges:edges},
-      node:{ state:{ inactive:{ opacity:0.12, labelOpacity:0.1 } } },
-      edge:{ state:{ inactive:{ strokeOpacity:0.08, opacity:0.08 } } },
-      layout:{ type:'antv-dagre', rankdir:'TB', nodesep:22, ranksep:58 },
-      behaviors:['zoom-canvas','drag-canvas','drag-element'] });
-    g.render();
+      node:{ state:{ inactive:{ opacity:0.12, labelOpacity:0.1 },
+                     active:{ lineWidth:3.5, labelOpacity:1, labelBackgroundOpacity:0.96 } } },
+      edge:{ type:'cubic-horizontal',   // smooth "horizontal cubic" gallery curve — pairs with LR
+             state:{ inactive:{ strokeOpacity:0.08, opacity:0.08 },
+                     active:{ strokeOpacity:1, lineWidth:3 } } },
+      layout:{ type:'antv-dagre', rankdir:'LR', nodesep:36, ranksep:96 },   // follow the money left→right
+      behaviors:['zoom-canvas','drag-canvas','drag-element'].concat(
+        FX.hover ? [{ type:'hover-activate', key:'hover-activate', degree:1, direction:'both',
+          state:'active', inactiveState:'inactive',
+          // yield to an isolate lock or an active filter — mirrors Cytoscape's !locked,
+          // so hover never repaints over a detector isolate or the contribution filter.
+          enable:function(){ return !locked && (!frange || +frange.value===0); } }] : []),
+      plugins: FX.minimap ? [{ type:'minimap', key:'minimap', size:[150,100], position:'right-bottom',
+        padding:8, maskStyle:{ background:'rgba(40,52,74,.10)', border:'1px solid '+COL.grey } }] : [] });
+
+    var ready=false;
+    try{ var rp=g.render(); if(rp&&rp.then) rp.then(function(){ ready=true; }, function(){ ready=true; }); else ready=true; }
+    catch(e){ ready=true; }
+
+    // One throttled rAF drives BOTH the marching ants (red path) and the optional
+    // pulse (single highest-risk node's halo). Full base style is re-sent each frame
+    // (not a partial) so the update is robust regardless of merge semantics. The
+    // loop is cancelled in destroy() — no leaked rAF when switching renderers.
+    var raf=0, last=0, off=0, drawing=false;
+    var edgeStyle={}; edges.forEach(function(e){ edgeStyle[e.id]=e.style; });
+    var nodeStyle={}; nodes.forEach(function(n){ nodeStyle[n.id]=n.style; });
+    var antIds = edges.filter(function(e){ var p=e.data&&e.data.pattern; return p==='circular'||p==='sanctioned'; }).map(function(e){ return e.id; });
+    var pulseId=null;  // highest-contribution sanctioned node
+    graph.nodes.forEach(function(n){ if(n.flags.sanctioned){ if(pulseId===null || (graph.cmap[n.id]||0)>(graph.cmap[pulseId]||0)) pulseId=n.id; } });
+    function tick(ts){
+      raf = requestAnimationFrame(tick);
+      if(!ready || drawing || ts-last < 50) return;   // ~20fps; skip while a draw is in flight
+      last = ts; off -= 1.4;
+      var eUpd = (FX.ants?antIds:[]).map(function(id){ return { id:id, style: Object.assign({}, edgeStyle[id], {lineDashOffset:off}) }; });
+      var nUpd = (FX.pulse && pulseId!==null) ? [{ id:pulseId, style: Object.assign({}, nodeStyle[pulseId], {haloLineWidth: 7 + 6*(0.5+0.5*Math.sin(ts/320))}) }] : [];
+      if(!eUpd.length && !nUpd.length) return;
+      try{
+        if(eUpd.length) g.updateEdgeData(eUpd);
+        if(nUpd.length) g.updateNodeData(nUpd);
+        drawing = true; var pr = g.draw();
+        if(pr && pr.then) pr.then(function(){ drawing=false; }, function(){ drawing=false; }); else drawing=false;
+      }catch(e){ drawing=false; }
+    }
+    if((FX.ants && antIds.length) || (FX.pulse && pulseId!==null)) raf = requestAnimationFrame(tick);
 
     function nd(id){ try{ return g.getNodeData(id)||{}; }catch(e){ return {}; } }
     function evId(ev){ return ev && ev.target && (ev.target.id != null ? ev.target.id : (ev.target.config && ev.target.config.id)); }
@@ -614,7 +713,7 @@
     }catch(e){}
 
     return {
-      destroy:function(){ try{ g.destroy(); }catch(e){} },
+      destroy:function(){ if(raf) cancelAnimationFrame(raf); raf=0; try{ g.destroy(); }catch(e){} },
       isolate:function(pat){ var a=patternSets(graph,pat); var st={};
         graph.nodes.forEach(function(n){ st[n.id]=a.nodes[n.id]?[]:['inactive']; });
         graph.edges.forEach(function(e){ st[e.id]=a.edges[e.id]?[]:['inactive']; });
@@ -638,7 +737,8 @@
     var Sigma = window.SigmaLib.Sigma, Graph = window.SigmaLib.Graph;
     var SZ = {subject:16, sanctioned:13, layering:12, intermediary:11, shell:10, counterparty:7};
 
-    // manual layered positions: BFS levels from the subject
+    var DIM="#E2E6EB";
+    // manual layered positions: BFS levels from the subject (LR — x grows by level)
     var adj = {}; graph.nodes.forEach(function(n){ adj[n.id]=[]; });
     graph.edges.forEach(function(e){ adj[e.source].push(e.target); adj[e.target].push(e.source); });
     var subject = (graph.nodes.filter(function(n){return n.flags.subject;})[0]||graph.nodes[0]).id;
@@ -649,19 +749,28 @@
     var G = new Graph({type:'directed'});
     graph.nodes.forEach(function(n){
       var L=lvl[n.id]||0, row=per[L], i=row.indexOf(n.id);
-      G.addNode(n.id, { label:n.label, x:(i-(row.length-1)/2)*2.4, y:-L*2.2, size:SZ[n.role]||7,
+      G.addNode(n.id, { label:n.label, x:L*2.2, y:(i-(row.length-1)/2)*2.4, size:SZ[n.role]||7,
         color:ROLE_COLOR[n.role]||COL.grey, type_:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role, flags:n.flags,
         subjectFlag:!!n.flags.subject, contrib:(graph.cmap[n.id]||0) });
     });
     graph.edges.forEach(function(e){ var p=epat(e);
       G.addEdgeWithKey(e.id, e.source, e.target, { color:EDGE_COLOR[p]||COL.grey, size:(p==='clean'?1:3), type:'arrow', amount:e.amount_gbp, pattern:p }); });
 
+    // labelRenderedSizeThreshold lifts the small counterparty nodes (size 7) out of
+    // the default label set; labelDensity/labelGridCellSize let Sigma's built-in
+    // collision avoidance thin the rest. Full labels come back on hover (reducer).
     var s = new Sigma(G, container, { defaultEdgeType:'arrow', renderEdgeLabels:false,
-      labelRenderedSizeThreshold:0, labelColor:{color:'#1F2733'}, labelSize:12, labelWeight:'600' });
+      labelRenderedSizeThreshold:8, labelDensity:0.6, labelGridCellSize:120,
+      labelColor:{color:'#1F2733'}, labelSize:12, labelWeight:'600' });
+    // hover neighbour-highlight state (composes ONLY when not isolating/filtering —
+    // mirrors Cytoscape's !locked). neighOf() reuses the adjacency built above.
+    var hover = {node:null, neigh:{}};
+    function neighOf(id){ var m={}; (adj[id]||[]).forEach(function(v){ m[v]=1; }); return m; }
     try{
       s.on('enterNode', function(ev){ var a=G.getNodeAttributes(ev.node);
-        hooks.node({id:ev.node,label:a.label,type:a.type_,country:a.country,kyc:a.kyc,role:a.role,flags:a.flags}); });
-      s.on('leaveNode', function(){ hooks.hide(); });
+        hooks.node({id:ev.node,label:a.label,type:a.type_,country:a.country,kyc:a.kyc,role:a.role,flags:a.flags});
+        if(mode.type==="none"){ hover.node=ev.node; hover.neigh=neighOf(ev.node); apply(); } });
+      s.on('leaveNode', function(){ hooks.hide(); if(hover.node){ hover.node=null; hover.neigh={}; apply(); } });
       s.on('enterEdge', function(ev){ var a=G.getEdgeAttributes(ev.edge);
         hooks.edge({fromLabel:G.getNodeAttribute(G.source(ev.edge),'label'), toLabel:G.getNodeAttribute(G.target(ev.edge),'label'), amount:a.amount, pattern:a.pattern}); });
       s.on('leaveEdge', function(){ hooks.hide(); });
@@ -671,14 +780,24 @@
     var mode = {type:"none"};
     function apply(){
       s.setSetting("nodeReducer", function(node, data){
-        if(mode.type==="isolate") return mode.nodes[node] ? data : Object.assign({}, data, {color:"#E2E6EB", label:"", size:Math.max(2,(data.size||6)*0.5)});
+        if(mode.type==="isolate") return mode.nodes[node] ? data : Object.assign({}, data, {color:DIM, label:"", size:Math.max(2,(data.size||6)*0.5)});
         if(mode.type==="filter" && !data.subjectFlag && (data.contrib||0)<mode.thr) return Object.assign({}, data, {hidden:true});
+        // mode none → hover neighbour-highlight: dim non-neighbours, reveal the
+        // hovered neighbourhood's labels (forceLabel). Otherwise blank the noisy
+        // counterparty labels so only key nodes are labelled at rest.
+        if(hover.node){
+          if(node===hover.node || hover.neigh[node]) return Object.assign({}, data, {forceLabel:true, zIndex:1});
+          return Object.assign({}, data, {color:DIM, label:""});
+        }
+        if(data.role==="counterparty") return Object.assign({}, data, {label:""});
         return data;
       });
       s.setSetting("edgeReducer", function(edge, data){
         if(mode.type==="isolate") return mode.edges[edge] ? data : Object.assign({}, data, {hidden:true});
         if(mode.type==="filter"){ var a=G.getNodeAttributes(G.source(edge)), b=G.getNodeAttributes(G.target(edge));
           if((!a.subjectFlag&&(a.contrib||0)<mode.thr) || (!b.subjectFlag&&(b.contrib||0)<mode.thr)) return Object.assign({}, data, {hidden:true}); }
+        if(hover.node){ if(G.source(edge)===hover.node || G.target(edge)===hover.node) return data;
+          return Object.assign({}, data, {hidden:true}); }
         return data;
       });
       try{ s.refresh(); }catch(e){}
@@ -711,8 +830,35 @@
     var EP={}, ES={}; graph.edges.forEach(function(e){ EP[e.id]=epat(e); ES[e.id]={s:e.source,t:e.target}; });
     var DIM="#E2E6EB", GHOST="#EEF1F4";
     function push(nodeFn, relFn){ try{ nvl.addAndUpdateElementsInGraph(nodes.map(nodeFn), rels.map(relFn)); }catch(e){} }
+
+    // ---- hover info ----
+    // NVL base wires NO pointer handlers, so resolve the element under the cursor
+    // ourselves via getHits(evt) (confirmed present in @neo4j-nvl/base@0.3.6) and
+    // route through the SHARED hooks, so the #tip tooltip matches the other views.
+    // Hover-dim is intentionally omitted: the base build has no node enter/leave
+    // events, so dimming would require a full WebGL re-style on every pointermove
+    // (flicker-prone). Per spec, hover info is the priority for NVL.
+    var NMAP={}, LBL={}; graph.nodes.forEach(function(n){ NMAP[n.id]=n; LBL[n.id]=n.label; });
+    var EMAP={}; graph.edges.forEach(function(e){ EMAP[e.id]=e; });
+    function rid(h){ return h && (h.data && h.data.id!=null ? h.data.id : h.id); }   // hit id, both shapes
+    var _lastHit=0;
+    function onMove(evt){
+      var now = evt.timeStamp||Date.now();
+      if(now-_lastHit < 30){ hooks.pos(evt); return; }   // throttle hit-testing; keep the tip following
+      _lastHit = now;
+      var t; try{ t=(nvl.getHits(evt)||{}).nvlTargets; }catch(e){ t=null; }
+      var nh = t && t.nodes && t.nodes[0], rh = t && t.relationships && t.relationships[0];
+      if(nh){ var n=NMAP[rid(nh)]; if(n){ hooks.node({id:n.id,label:n.label,type:n.type,country:n.jurisdiction,kyc:n.kyc_status,role:n.role,
+          flags:{subject:n.flags.subject,sanctioned:n.flags.sanctioned,shell:n.flags.shell}}); hooks.pos(evt); return; } }
+      if(rh){ var e=EMAP[rid(rh)]; if(e){ hooks.edge({fromLabel:LBL[e.source],toLabel:LBL[e.target],amount:e.amount_gbp,pattern:epat(e)}); hooks.pos(evt); return; } }
+      hooks.hide();
+    }
+    function onLeave(){ hooks.hide(); }
+    container.addEventListener('pointermove', onMove);
+    container.addEventListener('pointerleave', onLeave);
+
     return {
-      destroy:function(){ try{ nvl.destroy(); }catch(e){} },
+      destroy:function(){ container.removeEventListener('pointermove', onMove); container.removeEventListener('pointerleave', onLeave); try{ nvl.destroy(); }catch(e){} },
       isolate:function(pat){ var a=patternSets(graph,pat);
         push(function(n){ return Object.assign({}, n, { color: a.nodes[n.id] ? n.color : DIM }); },
              function(r){ return Object.assign({}, r, EP[r.id]===pat ? {} : { color:DIM, width:1 }); }); },
