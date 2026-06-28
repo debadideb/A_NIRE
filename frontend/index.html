@@ -52,19 +52,6 @@
 
   .hint{position:absolute;right:14px;top:12px;font-size:11px;color:var(--muted);font-family:var(--mono);background:rgba(255,255,255,.8);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
 
-  /* shared legend — one DOM element for ALL four renderers (top-left; clears the
-     top-right hint, bottom-left filter and bottom-right G6 minimap). Built once
-     from ROLE_COLOR + EDGE_COLOR so it can never drift from the graph colours. */
-  #legend{position:absolute;left:14px;top:12px;z-index:6;background:rgba(255,255,255,.93);
-    border:1px solid var(--line);border-radius:9px;padding:8px 11px 9px;box-shadow:0 2px 8px rgba(20,30,45,.08);
-    font-family:var(--mono);font-size:10.5px;color:var(--muted);max-width:170px}
-  #legend .lgt{font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;font-size:8.5px;margin:7px 0 3px}
-  #legend .lgt:first-child{margin-top:0}
-  #legend .lrow{display:flex;flex-wrap:wrap;gap:3px 11px}
-  #legend .li{display:flex;align-items:center;gap:5px;white-space:nowrap}
-  #legend .ls{width:10px;height:10px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.08)}
-  #legend .ll{width:17px;flex:none;border-top:3px solid}
-
   .right{display:flex;flex-direction:column}
   .panel{padding:16px;border-bottom:1px solid var(--line)}
   .panel:last-child{border-bottom:none;flex:1}
@@ -150,11 +137,7 @@
   .kbd{font-family:var(--mono);font-size:11px;background:#EEF2F7;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted);white-space:nowrap}
   @media(max-width:840px){.body{grid-template-columns:1fr}.right{border-top:1px solid var(--line)}.canvas-wrap{border-right:none}.read{grid-template-columns:1fr}}
 </style>
-<script src="vendor/cytoscape.min.js"></script>
-<script src="vendor/dagre.min.js"></script>
-<script src="vendor/cytoscape-dagre.js"></script>
 <script src="vendor/g6.min.js"></script>
-<script src="vendor/sigma-bundle.js"></script>
 </head>
 <body>
 <div class="page">
@@ -168,9 +151,7 @@
       <div class="field"><label>Hops</label><div class="input sm">2 &#9662;</div></div>
       <div class="field"><label>View</label>
         <select class="input" id="renderer">
-          <option value="cytoscape">Cytoscape · full</option>
           <option value="g6">G6 (AntV)</option>
-          <option value="sigma">Sigma · WebGL</option>
           <option value="nvl">Neo4j NVL</option>
         </select>
       </div>
@@ -181,7 +162,6 @@
     <div class="body">
       <div class="canvas-wrap" id="cv">
         <span class="hint">hover &middot; drag &middot; click driver</span>
-        <div id="legend"></div>
         <div id="graph"></div>
         <div class="filter">
           <div class="ftop"><span>Filter &middot; contribution</span><b id="fval">&#8805; 0%</b></div>
@@ -266,9 +246,7 @@
 /* Graph + side panels driven by the live /api/case contract.
    The graph is rendered through a PLUGGABLE renderer layer — switch libraries
    from the "View" dropdown. Renderers:
-     cytoscape (vendored, default, full interactions: isolate + filter)
-     g6        (vendored AntV, layered)
-     sigma     (WebGL, lazy-loaded from esm.sh on select)
+     g6        (vendored AntV, default — layered "showcase": isolate + filter)
      nvl       (Neo4j NVL, lazy-loaded from esm.sh on select)
    Side panels, decision capture, audit trail and tooltips are renderer-
    independent. Each renderer is sandboxed (errors show a message, never crash
@@ -291,45 +269,17 @@
     return {nodes:nodes, edges:edges};
   }
 
-  // Shared legend, built ONCE from the same colour maps every renderer uses, so it
-  // can never drift from the graph. Renderer-independent — visible for all four views.
-  function buildLegend(){
-    var box = document.getElementById("legend"); if(!box) return;
-    var roles = [["Subject","subject"],["Sanctioned","sanctioned"],["Shell","shell"],["Layering","layering"],["Counterparty","counterparty"]];
-    var pats  = [["Circular flow","circular"],["Sanctioned","sanctioned"],["Shell link","shell"],["Clean","clean"]];
-    var h = '<div class="lgt">Entity</div><div class="lrow">';
-    roles.forEach(function(r){ h += '<span class="li"><span class="ls" style="background:'+(ROLE_COLOR[r[1]]||COL.grey)+'"></span>'+r[0]+'</span>'; });
-    h += '</div><div class="lgt">Money flow</div><div class="lrow">';
-    pats.forEach(function(p){ h += '<span class="li"><span class="ll" style="border-top-color:'+(EDGE_COLOR[p[1]]||COL.grey)+'"></span>'+p[0]+'</span>'; });
-    box.innerHTML = h + '</div>';
-  }
-
-  // Cytoscape layout (swap from one place; G6 uses antv-dagre directly).
-  var GRAPH_LAYOUT = "dagre";
-  var LAYOUTS = {
-    // LR = "follow the money" left→right (subject → layering → terminal/sanctioned).
-    // Shared by Cytoscape via layoutConfig(); G6 + Sigma set their own direction to match.
-    dagre:        {name:"dagre", rankDir:"LR", nodeSep:34, rankSep:86, edgeSep:14, fit:true, padding:30, animate:false},
-    breadthfirst: {name:"breadthfirst", directed:true, roots:"node[subject = 1]", spacingFactor:1.05, fit:true, padding:30, animate:false},
-    concentric:   {name:"concentric", fit:true, padding:30, minNodeSpacing:34, animate:false,
-                   concentric:function(n){ return Math.round((n.data("contrib")||0)*100) + (n.data("subject") ? 100 : 0); },
-                   levelWidth:function(){ return 1; }},
-    cose:         {name:"cose", animate:false, padding:30, nodeRepulsion:9000, idealEdgeLength:90, nodeOverlap:14}
-  };
-  function layoutConfig(){ return LAYOUTS[GRAPH_LAYOUT] || LAYOUTS.dagre; }
-
   var tip = document.getElementById("tip");
   var graphEl = document.getElementById("graph");
   var frange = document.getElementById("frange"), fval = document.getElementById("fval");
 
-  var DATA = null, CMAP = {}, current = null, currentName = "cytoscape", locked = null;
+  var DATA = null, CMAP = {}, current = null, currentName = "g6", locked = null;
   try{ var _qv = new URLSearchParams(location.search).get("view"); if(_qv) currentName = _qv; }catch(e){}
 
   fetch("/api/case/" + CASE_ID)
     .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(render).catch(showError);
   loadModels();  // populate the LLM model selector (independent of the case load)
-  buildLegend(); // shared graph legend — renderer-independent, built once
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -450,11 +400,11 @@
   }
 
   // ====================== renderer controller ======================
-  var RENDERERS = { cytoscape: makeCytoscape, g6: makeG6, sigma: makeSigma, nvl: makeNvl };
+  var RENDERERS = { g6: makeG6, nvl: makeNvl };
 
   var MOUNT_SEQ = 0;
   function mountRenderer(name){
-    if(!Object.prototype.hasOwnProperty.call(RENDERERS, name)) name = "cytoscape";  // own-prop only
+    if(!Object.prototype.hasOwnProperty.call(RENDERERS, name)) name = "g6";  // own-prop only
     var s = document.getElementById("renderer"); if(s && s.value !== name) s.value = name;  // sync dropdown to resolved
     if(current && current.destroy){ try{ current.destroy(); }catch(e){} }
     current = null; locked = null;
@@ -538,80 +488,6 @@
 
   // ====================== RENDERERS ======================
 
-  // ---------- Cytoscape (default, full: isolate + filter) ----------
-  function makeCytoscape(container, graph, hooks){
-    var els = [];
-    graph.nodes.forEach(function(n){
-      els.push({ data:{ id:n.id, label:n.label, role:n.role, type:n.type, country:n.jurisdiction, kyc:n.kyc_status,
-        subject:n.flags.subject?1:0, sanctioned:n.flags.sanctioned?1:0, shell:n.flags.shell?1:0,
-        size: nodeSize(n, graph.cmap), contrib: graph.cmap[n.id]||0 } });
-    });
-    graph.edges.forEach(function(e){
-      els.push({ data:{ id:e.id, source:e.source, target:e.target, amount:e.amount_gbp, pattern:epat(e), width: edgeWidth(e.amount_gbp) } });
-    });
-    var cy = cytoscape({ container:container, elements:els, wheelSensitivity:0.2,
-      style:[
-        {selector:"node",style:{
-          "background-color":COL.grey,"width":"data(size)","height":"data(size)",
-          "label":"data(label)","font-size":"10px","font-weight":600,"color":"#1F2733",
-          "text-valign":"bottom","text-margin-y":5,"text-wrap":"wrap","text-max-width":"86px",
-          "text-outline-width":2,"text-outline-color":"#fff","min-zoomed-font-size":7,
-          "border-width":2,"border-color":"#fff"}},
-        {selector:'node[role="subject"]',style:{"background-color":COL.navy,"color":"#fff","text-valign":"center","text-margin-y":0,"font-weight":"bold","font-size":"9px","text-max-width":"66px","text-outline-color":COL.navy,"text-outline-width":2}},
-        {selector:'node[role="sanctioned"]',style:{"background-color":COL.red}},
-        {selector:'node[role="shell"]',style:{"background-color":COL.amber}},
-        {selector:'node[role="layering"]',style:{"background-color":COL.amber}},
-        {selector:'node[role="intermediary"]',style:{"background-color":COL.amber}},
-        {selector:'node[role="counterparty"]',style:{"background-color":"#CBDED2","border-width":1,"opacity":0.7}},
-        {selector:"node[sanctioned = 1]",style:{"border-width":4,"border-color":COL.red,
-          "underlay-color":COL.red,"underlay-padding":10,"underlay-opacity":0.2}},   // soft red glow, flagged nodes only
-        {selector:"edge",style:{
-          // unbundled-bezier + control points = a smooth cubic bow on every edge
-          // (matches the G6 cubic look); curve-style:bezier left edges mostly straight.
-          "width":"data(width)","curve-style":"unbundled-bezier","control-point-distances":[42],"control-point-weights":[0.5],
-          "target-arrow-shape":"triangle","arrow-scale":1,
-          "line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.8}},
-        {selector:'edge[pattern="circular"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2,"line-style":"dashed","line-dash-pattern":[10,6]}},
-        {selector:'edge[pattern="sanctioned"]',style:{"line-color":COL.red,"target-arrow-color":COL.red,"opacity":1,"arrow-scale":1.2,"line-style":"dashed","line-dash-pattern":[10,6]}},
-        {selector:'edge[pattern="shell"]',style:{"line-color":COL.amber,"target-arrow-color":COL.amber,"opacity":0.95,"arrow-scale":1.1}},
-        {selector:'edge[pattern="clean"]',style:{"line-color":COL.grey,"target-arrow-color":COL.grey,"opacity":0.3}},
-        {selector:".faded",style:{"opacity":0.08,"text-opacity":0.08}}
-      ],
-      layout: layoutConfig() });
-
-    cy.on("mouseover","node",function(ev){ var d=ev.target.data();
-      hooks.node({id:d.id,label:d.label,type:d.type,country:d.country,kyc:d.kyc,role:d.role,
-        flags:{subject:d.subject,sanctioned:d.sanctioned,shell:d.shell}});
-      if(!locked){ cy.elements().addClass("faded"); ev.target.closedNeighborhood().removeClass("faded"); } });
-    cy.on("mouseout","node",function(){ hooks.hide(); if(!locked) cy.elements().removeClass("faded"); });
-    cy.on("mouseover","edge",function(ev){ var d=ev.target.data();
-      hooks.edge({fromLabel:cy.getElementById(d.source).data("label"), toLabel:cy.getElementById(d.target).data("label"), amount:d.amount, pattern:d.pattern}); });
-    cy.on("mouseout","edge",function(){ hooks.hide(); });
-    cy.on("mousemove",function(ev){ hooks.pos(ev.originalEvent); });
-    cy.on("tap",function(ev){ if(ev.target===cy) hooks.bgtap(); });
-    window._cy = cy;
-
-    // Marching-ants flow along the red path: animate line-dash-offset in ONE rAF
-    // (~22fps). The selection is cached; the loop is cancelled in destroy() (no leak).
-    var _raf=0, _off=0, _last=0;
-    var antSel = cy.edges('[pattern="circular"],[pattern="sanctioned"]');
-    function antTick(ts){ _raf = requestAnimationFrame(antTick);
-      if(ts-_last < 45) return; _last=ts; _off -= 1; antSel.style("line-dash-offset", _off); }
-    if(antSel.length) _raf = requestAnimationFrame(antTick);
-
-    return {
-      destroy:function(){ if(_raf) cancelAnimationFrame(_raf); _raf=0; cy.destroy(); if(window._cy===cy) window._cy=null; },
-      isolate:function(pat){ cy.elements().style("display","element");
-        var e = cy.edges('[pattern="'+pat+'"]'); var coll = e.union(e.connectedNodes());
-        cy.elements().addClass("faded"); coll.removeClass("faded"); },
-      clearIsolate:function(){ cy.elements().removeClass("faded"); },
-      setFilter:function(thr){ cy.batch(function(){
-        cy.nodes().forEach(function(n){ n.style("display",(!n.data("subject")&&n.data("contrib")<thr)?"none":"element"); });
-        cy.edges().forEach(function(e){ e.style("display",(e.source().style("display")==="none"||e.target().style("display")==="none")?"none":"element"); }); }); },
-      fit:function(){ cy.layout(layoutConfig()).run(); cy.fit(undefined,30); }
-    };
-  }
-
   // ---------- G6 (AntV) — vendored; the polished "showcase" view ----------
   // Every effect below uses a feature ALREADY in the vendored v5 bundle (verified
   // against frontend/vendor/g6.min.js): hover-activate behavior, cubic-horizontal
@@ -661,7 +537,7 @@
       behaviors:['zoom-canvas','drag-canvas','drag-element'].concat(
         FX.hover ? [{ type:'hover-activate', key:'hover-activate', degree:1, direction:'both',
           state:'active', inactiveState:'inactive',
-          // yield to an isolate lock or an active filter — mirrors Cytoscape's !locked,
+          // yield to an isolate lock or an active filter (the !locked discipline),
           // so hover never repaints over a detector isolate or the contribution filter.
           enable:function(){ return !locked && (!frange || +frange.value===0); } }] : []),
       plugins: FX.minimap ? [{ type:'minimap', key:'minimap', size:[150,100], position:'right-bottom',
@@ -727,88 +603,6 @@
         try{ g.setElementVisibility(vis); }
         catch(e){ try{ Object.keys(vis).forEach(function(id){ vis[id]==='hidden'?g.hideElement(id):g.showElement(id); }); }catch(_){} } },
       fit:function(){ try{ g.fitView(); }catch(e){ try{ g.render(); }catch(_){} } }
-    };
-  }
-
-  // ---------- Sigma + graphology — lazy via esm.sh, WebGL ----------
-  function makeSigma(container, graph, hooks){
-    if(!window.SigmaLib) throw new Error("Sigma bundle not loaded");
-    container.innerHTML = "";
-    var Sigma = window.SigmaLib.Sigma, Graph = window.SigmaLib.Graph;
-    var SZ = {subject:16, sanctioned:13, layering:12, intermediary:11, shell:10, counterparty:7};
-
-    var DIM="#E2E6EB";
-    // manual layered positions: BFS levels from the subject (LR — x grows by level)
-    var adj = {}; graph.nodes.forEach(function(n){ adj[n.id]=[]; });
-    graph.edges.forEach(function(e){ adj[e.source].push(e.target); adj[e.target].push(e.source); });
-    var subject = (graph.nodes.filter(function(n){return n.flags.subject;})[0]||graph.nodes[0]).id;
-    var lvl = {}; lvl[subject]=0; var q=[subject];
-    while(q.length){ var u=q.shift(); adj[u].forEach(function(v){ if(lvl[v]===undefined){ lvl[v]=lvl[u]+1; q.push(v); } }); }
-    var per = {}; graph.nodes.forEach(function(n){ var L=lvl[n.id]||0; (per[L]=per[L]||[]).push(n.id); });
-
-    var G = new Graph({type:'directed'});
-    graph.nodes.forEach(function(n){
-      var L=lvl[n.id]||0, row=per[L], i=row.indexOf(n.id);
-      G.addNode(n.id, { label:n.label, x:L*2.2, y:(i-(row.length-1)/2)*2.4, size:SZ[n.role]||7,
-        color:ROLE_COLOR[n.role]||COL.grey, type_:n.type, country:n.jurisdiction, kyc:n.kyc_status, role:n.role, flags:n.flags,
-        subjectFlag:!!n.flags.subject, contrib:(graph.cmap[n.id]||0) });
-    });
-    graph.edges.forEach(function(e){ var p=epat(e);
-      G.addEdgeWithKey(e.id, e.source, e.target, { color:EDGE_COLOR[p]||COL.grey, size:(p==='clean'?1:3), type:'arrow', amount:e.amount_gbp, pattern:p }); });
-
-    // labelRenderedSizeThreshold lifts the small counterparty nodes (size 7) out of
-    // the default label set; labelDensity/labelGridCellSize let Sigma's built-in
-    // collision avoidance thin the rest. Full labels come back on hover (reducer).
-    var s = new Sigma(G, container, { defaultEdgeType:'arrow', renderEdgeLabels:false,
-      labelRenderedSizeThreshold:8, labelDensity:0.6, labelGridCellSize:120,
-      labelColor:{color:'#1F2733'}, labelSize:12, labelWeight:'600' });
-    // hover neighbour-highlight state (composes ONLY when not isolating/filtering —
-    // mirrors Cytoscape's !locked). neighOf() reuses the adjacency built above.
-    var hover = {node:null, neigh:{}};
-    function neighOf(id){ var m={}; (adj[id]||[]).forEach(function(v){ m[v]=1; }); return m; }
-    try{
-      s.on('enterNode', function(ev){ var a=G.getNodeAttributes(ev.node);
-        hooks.node({id:ev.node,label:a.label,type:a.type_,country:a.country,kyc:a.kyc,role:a.role,flags:a.flags});
-        if(mode.type==="none"){ hover.node=ev.node; hover.neigh=neighOf(ev.node); apply(); } });
-      s.on('leaveNode', function(){ hooks.hide(); if(hover.node){ hover.node=null; hover.neigh={}; apply(); } });
-      s.on('enterEdge', function(ev){ var a=G.getEdgeAttributes(ev.edge);
-        hooks.edge({fromLabel:G.getNodeAttribute(G.source(ev.edge),'label'), toLabel:G.getNodeAttribute(G.target(ev.edge),'label'), amount:a.amount, pattern:a.pattern}); });
-      s.on('leaveEdge', function(){ hooks.hide(); });
-      s.getMouseCaptor().on('mousemovebody', function(ev){ hooks.pos(ev && ev.original); });
-    }catch(e){}
-
-    var mode = {type:"none"};
-    function apply(){
-      s.setSetting("nodeReducer", function(node, data){
-        if(mode.type==="isolate") return mode.nodes[node] ? data : Object.assign({}, data, {color:DIM, label:"", size:Math.max(2,(data.size||6)*0.5)});
-        if(mode.type==="filter" && !data.subjectFlag && (data.contrib||0)<mode.thr) return Object.assign({}, data, {hidden:true});
-        // mode none → hover neighbour-highlight: dim non-neighbours, reveal the
-        // hovered neighbourhood's labels (forceLabel). Otherwise blank the noisy
-        // counterparty labels so only key nodes are labelled at rest.
-        if(hover.node){
-          if(node===hover.node || hover.neigh[node]) return Object.assign({}, data, {forceLabel:true, zIndex:1});
-          return Object.assign({}, data, {color:DIM, label:""});
-        }
-        if(data.role==="counterparty") return Object.assign({}, data, {label:""});
-        return data;
-      });
-      s.setSetting("edgeReducer", function(edge, data){
-        if(mode.type==="isolate") return mode.edges[edge] ? data : Object.assign({}, data, {hidden:true});
-        if(mode.type==="filter"){ var a=G.getNodeAttributes(G.source(edge)), b=G.getNodeAttributes(G.target(edge));
-          if((!a.subjectFlag&&(a.contrib||0)<mode.thr) || (!b.subjectFlag&&(b.contrib||0)<mode.thr)) return Object.assign({}, data, {hidden:true}); }
-        if(hover.node){ if(G.source(edge)===hover.node || G.target(edge)===hover.node) return data;
-          return Object.assign({}, data, {hidden:true}); }
-        return data;
-      });
-      try{ s.refresh(); }catch(e){}
-    }
-    apply();
-    return {
-      destroy:function(){ try{ s.kill(); }catch(e){} },
-      isolate:function(pat){ var a=patternSets(graph,pat); mode={type:"isolate",nodes:a.nodes,edges:a.edges}; apply(); },
-      clearIsolate:function(){ mode={type:"none"}; apply(); },
-      setFilter:function(thr){ mode = thr>0 ? {type:"filter",thr:thr} : {type:"none"}; apply(); },
-      fit:function(){ try{ s.getCamera().animatedReset(); }catch(e){} }
     };
   }
 
