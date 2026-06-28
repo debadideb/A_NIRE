@@ -31,6 +31,8 @@
   .filter.na{opacity:.45}
   .filter.na input[type=range]{cursor:not-allowed}
   .btn{background:var(--blue);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:13px;align-self:flex-end;cursor:pointer}
+  .btn.alt{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+  .btn.alt:hover{background:#F1F6FF}
   .casemeta{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);font-family:var(--mono)}
   .casemeta b{color:var(--ink)}
 
@@ -51,6 +53,31 @@
   .filter .note{font-size:10.5px;color:var(--muted);margin-top:7px}
 
   .hint{position:absolute;right:14px;top:12px;font-size:11px;color:var(--muted);font-family:var(--mono);background:rgba(255,255,255,.8);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+
+  /* Pop-out isolate bar — hidden in the normal console, shown only in ?popout=1
+     mode (where the right-hand drivers panel is hidden). Reuses .driver so the
+     existing toggleIsolate()/clearIsolate() active-state logic just works. */
+  .popbar{display:none}
+  .pb-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .pb-iso{display:flex;gap:6px;flex-wrap:wrap}
+  .pb-iso.na{opacity:.5;pointer-events:none}
+  .driver.mini{padding:5px 11px;gap:0;font-size:12px;background:#fff}
+  .driver.mini.active{border-color:var(--blue);background:#EFF5FF;color:var(--blue)}
+  .pb-btn{background:#fff;border:1px solid var(--line);border-radius:7px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink)}
+  .pb-btn:hover{border-color:#C9DBFB;background:#F7FAFF}
+
+  /* Pop-out layout: collapse the console chrome to just the full-bleed graph
+     (the filter + isolate overlays live inside .canvas-wrap, so they stay). */
+  html.popout body{margin:0}
+  html.popout .title,html.popout .sub,html.popout .titlebar,html.popout .controls,html.popout .right,html.popout .read{display:none}
+  html.popout .page{max-width:none;margin:0;padding:0}
+  html.popout .app{border:0;border-radius:0;box-shadow:none;height:100vh;display:flex;flex-direction:column}
+  html.popout .body{flex:1;min-height:0;grid-template-columns:1fr;grid-template-rows:1fr}
+  html.popout .canvas-wrap{border-right:0;min-height:0}
+  html.popout #graph{height:100%}
+  html.popout .popbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;position:absolute;left:16px;top:14px;z-index:6;
+    background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:10px;padding:8px 11px;
+    box-shadow:0 2px 8px rgba(20,30,45,.08);max-width:calc(100% - 32px)}
 
   .right{display:flex;flex-direction:column}
   .panel{padding:16px;border-bottom:1px solid var(--line)}
@@ -138,6 +165,11 @@
   @media(max-width:840px){.body{grid-template-columns:1fr}.right{border-top:1px solid var(--line)}.canvas-wrap{border-right:none}.read{grid-template-columns:1fr}}
 </style>
 <script src="vendor/g6.min.js"></script>
+<!-- Pop-out mode: a second window opened with ?popout=1 shows ONLY the graph +
+     its filter slider + isolate controls. Flag it on <html> before paint so the
+     console chrome never flashes in (FOUC). The popout reuses this same page and
+     renderer layer — no duplicated graph code. -->
+<script>try{ if(new URLSearchParams(location.search).get("popout")) document.documentElement.classList.add("popout"); }catch(e){}</script>
 </head>
 <body>
 <div class="page">
@@ -156,12 +188,18 @@
         </select>
       </div>
       <button class="btn" onclick="resetView()">Load network</button>
+      <button class="btn alt" onclick="openPopout()" title="Open the graph in its own window with filter + isolate">&#9974; Pop out</button>
       <div class="casemeta" id="caseMeta">subject &nbsp;<b>—</b></div>
     </div>
 
     <div class="body">
       <div class="canvas-wrap" id="cv">
         <span class="hint">hover &middot; drag &middot; click driver</span>
+        <div class="popbar" id="popbar">
+          <span class="pb-lbl">Isolate</span>
+          <div class="pb-iso" id="popDrivers"></div>
+          <button type="button" class="pb-btn" onclick="resetView()">Reset view</button>
+        </div>
         <div id="graph"></div>
         <div class="filter">
           <div class="ftop"><span>Filter &middot; contribution</span><b id="fval">&#8805; 0%</b></div>
@@ -379,6 +417,7 @@
 
   function bindDrivers(d){
     var box = document.getElementById("drivers"); box.innerHTML = "";
+    var pop = document.getElementById("popDrivers"); if(pop) pop.innerHTML = "";  // pop-out isolate bar
     d.detectors.filter(function(x){ return x.fired; }).forEach(function(det){
       var pat = patternOf(det.key);
       var el = document.createElement("div");
@@ -389,6 +428,15 @@
         '<span class="zoom">Isolate</span>';
       el.addEventListener("click", function(){ toggleIsolate(pat, el); });
       box.appendChild(el);
+      // Compact twin for the pop-out window. Same .driver class → the shared
+      // toggleIsolate()/clearIsolate() active-state management covers it for free.
+      if(pop){
+        var mini = document.createElement("div");
+        mini.className = "driver mini"; mini.setAttribute("data-sc", pat); mini.title = det.explanation;
+        mini.textContent = det.name;
+        mini.addEventListener("click", function(){ toggleIsolate(pat, mini); });
+        pop.appendChild(mini);
+      }
     });
   }
 
@@ -433,6 +481,7 @@
     var iso = ready && current && !!current.isolate;
     var flt = ready && current && !!current.setFilter;
     var dv = document.getElementById("drivers"); if(dv) dv.classList.toggle("na", !iso);
+    var pd = document.getElementById("popDrivers"); if(pd) pd.classList.toggle("na", !iso);  // pop-out twin
     var fw = document.querySelector(".filter"); if(fw) fw.classList.toggle("na", !flt);
     if(frange) frange.disabled = !flt;
   }
@@ -462,6 +511,16 @@
     if(frange){ frange.value = 0; fval.innerHTML = "≥ 0%"; }
     clearIsolate();
     if(current && current.fit){ try{ current.fit(); }catch(e){} }
+  };
+
+  // Pop the graph into its own window: reuse THIS page with ?popout=1 (collapses
+  // the console chrome to graph + filter + isolate) and carry the current view so
+  // it opens on the same renderer. One window per view (keyed name) so re-popping
+  // the same view reuses its window instead of stacking duplicates.
+  window.openPopout = function(){
+    var url = location.pathname + "?popout=1&view=" + encodeURIComponent(currentName);
+    var w = window.open(url, "anire_graph_" + currentName, "width=1180,height=780");
+    if(w){ try{ w.focus(); }catch(e){} }
   };
 
   var sel = document.getElementById("renderer");
