@@ -293,3 +293,124 @@ def _headline(the_band: str) -> str:
         "EDD": "Escalate to Enhanced Due Diligence (EDD)",
         "CLEAR": "No action — clear the alert",
     }[the_band]
+
+
+# --- Contribution share (ONE definition, reused everywhere) -----------------
+
+def contribution_shares(edges: list[dict], reference_id: str) -> dict[str, dict]:
+    """Each edge's share of `reference_id`'s money flow, with its direction.
+
+    The single server-side definition of "contribution %": for the reference
+    entity, debit = Σ amounts it SENT (outflows) and credit = Σ amounts it
+    RECEIVED (inflows); an edge's share is its amount over the matching base.
+    Outflows are "debit", inflows "credit". Returns {edge_id: {"pct", "direction"}}
+    for every edge that touches the reference (others are omitted; a base of 0
+    yields no entry). The entity endpoint calls this with the queried entity; the
+    main-graph slider and the modal will adopt the SAME helper (reference = the
+    subject) during frontend wiring — so contribution % has one server-side
+    definition rather than one per UI surface.
+    """
+    debit = sum(e["amount_gbp"] for e in edges if e["source"] == reference_id)
+    credit = sum(e["amount_gbp"] for e in edges if e["target"] == reference_id)
+    shares: dict[str, dict] = {}
+    for e in edges:
+        if e["source"] == reference_id and debit:
+            shares[e["id"]] = {"pct": 100.0 * e["amount_gbp"] / debit, "direction": "debit"}
+        elif e["target"] == reference_id and credit:
+            shares[e["id"]] = {"pct": 100.0 * e["amount_gbp"] / credit, "direction": "credit"}
+    return shares
+
+
+# --- Entity detail (backs the double-click modal) ---------------------------
+
+def _csv_by_id(name: str) -> dict[str, dict]:
+    """Index a data CSV by its entity_id column."""
+    with open(DATA_DIR / name, newline="", encoding="utf-8") as f:
+        return {r["entity_id"]: r for r in csv.DictReader(f)}
+
+
+def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
+    """Assemble {kyc, worldcheck|null, risky_paths[]} for one entity.
+
+    No new data: a join over kyc.csv + worldcheck.csv + the already-scored
+    contract (whose edges carry the per-txn detector pattern). Returns None when
+    the entity has no KYC row, which the route turns into a 404.
+
+    risky_paths = every fired-detector transaction that touches the entity, BOTH
+    directions (sent and received), aggregated per (counterparty, direction):
+    summed amount, the txn ids, the detector reason(s), and the entity-relative
+    contribution % from the shared helper. Clean parties touch no fired txn, so
+    their list is empty.
+    """
+    kyc_row = _csv_by_id("kyc.csv").get(entity_id)
+    if kyc_row is None:
+        return None
+    wc_row = _csv_by_id("worldcheck.csv").get(entity_id)
+
+    kyc = {
+        "entity_id": kyc_row["entity_id"],
+        "name": kyc_row["name"],
+        "entity_type": kyc_row["entity_type"],
+        "jurisdiction": kyc_row["jurisdiction"],
+        "incorporation_year": (int(kyc_row["incorporation_year"])
+                               if kyc_row["incorporation_year"] else None),
+        "kyc_status": kyc_row["kyc_status"],
+        "registered_address": kyc_row["registered_address"] or None,
+    }
+    worldcheck = {
+        "entity_id": wc_row["entity_id"],
+        "source": wc_row["source"],
+        "list_name": wc_row["list_name"],
+        "category": wc_row["category"],
+        "match_strength": float(wc_row["match_strength"]),
+        "hit_date": wc_row["hit_date"],
+        "screened_name": wc_row["screened_name"],
+    } if wc_row else None
+
+    # Which txns are risky, and why. Collect ALL fired-detector names per txn (not
+    # just the first) so a txn caught by two detectors keeps both reasons — the
+    # endpoint promises the detector reason(s), so none may be dropped.
+    reason_by_txn: dict[str, set[str]] = {}
+    for d in contract["detectors"]:
+        if d["fired"]:
+            for t in d["txns"]:
+                reason_by_txn.setdefault(t, set()).add(d["name"])
+
+    edges = contract["graph"]["edges"]
+    shares = contribution_shares(edges, entity_id)  # direction + % from one source
+
+    # Aggregate per (counterparty, direction). Keying on direction too stays sound
+    # even if an entity both sent to and received from the same counterparty (the
+    # synthetic data has no such 2-cycle, but the rule must not mix the two).
+    agg: dict[tuple, dict] = {}
+    for e in edges:
+        if e["id"] not in reason_by_txn:
+            continue
+        sh = shares.get(e["id"])
+        if sh is None:                       # edge doesn't touch this entity
+            continue
+        direction = sh["direction"]
+        counterparty = e["target"] if direction == "debit" else e["source"]
+        row = agg.setdefault((counterparty, direction), {
+            "counterparty": counterparty,
+            "direction": direction,
+            "reason": set(),
+            "txn_ids": [],
+            "amount": 0,
+            "currency": "GBP",
+            "contribution_pct": 0.0,
+        })
+        row["txn_ids"].append(e["id"])
+        row["amount"] += e["amount_gbp"]
+        row["reason"].update(reason_by_txn[e["id"]])
+        row["contribution_pct"] += sh["pct"]
+
+    risky_paths = []
+    for row in agg.values():
+        row["reason"] = ", ".join(sorted(row["reason"]))
+        row["contribution_pct"] = round(row["contribution_pct"], 1)
+        risky_paths.append(row)
+    risky_paths.sort(key=lambda r: r["contribution_pct"], reverse=True)  # worst first
+
+    return {"entity_id": entity_id, "kyc": kyc,
+            "worldcheck": worldcheck, "risky_paths": risky_paths}
