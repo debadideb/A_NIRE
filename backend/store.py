@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS decisions (
     score_total      REAL,
     band             TEXT,
     rationale_source TEXT,
+    scoring_engine   TEXT,
     created_at       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_decisions_case ON decisions(case_id, id);
@@ -37,18 +38,31 @@ def _conn() -> sqlite3.Connection:
 def init_db() -> None:
     with _conn() as conn:
         conn.executescript(_SCHEMA)
+        # Idempotent migration: a DB created before scoring_engine existed won't
+        # gain the column from CREATE TABLE IF NOT EXISTS, so add it in place.
+        # Existing rows keep NULL — the append-only history is preserved.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(decisions)")}
+        if "scoring_engine" not in cols:
+            conn.execute("ALTER TABLE decisions ADD COLUMN scoring_engine TEXT")
 
 
 def record_decision(case_id: str, action: str, decided_by: str, notes: str,
-                    score_total: float, band: str, rationale_source: str) -> dict:
-    """Append one decision row (immutable) and return it."""
+                    score_total: float, band: str, rationale_source: str,
+                    scoring_engine: str | None = None) -> dict:
+    """Append one decision row (immutable) and return it.
+
+    `scoring_engine` records which scorer produced the score the analyst acted on,
+    so the audit trail names the model behind every decision.
+    """
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO decisions "
-            "(case_id, action, decided_by, notes, score_total, band, rationale_source, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (case_id, action, decided_by, notes, score_total, band, rationale_source, created_at),
+            "(case_id, action, decided_by, notes, score_total, band, rationale_source, "
+            "scoring_engine, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (case_id, action, decided_by, notes, score_total, band, rationale_source,
+             scoring_engine, created_at),
         )
         row = conn.execute("SELECT * FROM decisions WHERE id = ?", (cur.lastrowid,)).fetchone()
     return dict(row)

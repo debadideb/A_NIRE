@@ -5,16 +5,20 @@ Three detectors run over the built graph:
   * sanctioned_exposure— subject reaches a :Sanctioned node within a few hops
   * shell_linkage      — subject funds a cluster of >= 2 :Shell entities
 
-Each fired detector contributes its configured weight (config.DETECTOR_WEIGHTS);
-the total maps to a band (config.band). The contract emitted by
-build_case_contract() is the SAME shape slice 1 hardcoded, so the frontend,
-recommendation, and audit layers do not change. Node flags/role and edge
-patterns are DERIVED from graph labels + detector output — never hand-labelled.
+Detectors here emit pure *evidence* (which patterns fired, over which entities/
+txns) and carry NO score. Turning that evidence into a total + band + per-detector
+contributions is the job of a pluggable scoring engine (engine.py), selected by
+config.SCORING_ENGINE; build_case_contract() calls it and merges the contributions
+back onto the detector list. The contract emitted is the SAME shape slice 1
+hardcoded, so the frontend, recommendation, and audit layers do not change. Node
+flags/role and edge patterns are DERIVED from graph labels + detector output —
+never hand-labelled.
 """
 
 import csv
 
-from config import BANDS, DATA_DIR, DETECTOR_WEIGHTS, band
+from config import DATA_DIR
+from engine import get_engine
 from graphdb import DB
 
 # --- Cypher ---------------------------------------------------------------
@@ -147,11 +151,12 @@ def run_detectors(driver) -> list[dict]:
 
 
 def _result(key, name, fired, entities, txns, explanation) -> dict:
+    # Pure evidence: no score here. The scoring engine owns `contribution`, which
+    # build_case_contract merges back on after scoring.
     return {
         "key": key,
         "name": name,
         "fired": fired,
-        "contribution": DETECTOR_WEIGHTS[key] if fired else 0.0,
         "entities": entities,
         "txns": txns,
         "explanation": explanation,
@@ -234,9 +239,15 @@ def build_case_contract(driver, build_report: dict) -> dict:
         "pattern": txn_pattern.get(e["id"]),
     } for e in _records(driver, _EDGES)]
 
-    # Score + band
-    total = round(sum(d["contribution"] for d in detectors), 2)
-    the_band = band(total)
+    # Score via the configured engine (detectors are pure evidence). The graph is
+    # passed for engines that want topology; the rule-based engine ignores it.
+    result = get_engine().score(detectors, {"nodes": nodes, "edges": edges})
+    # Merge the engine's per-detector contributions back onto the evidence list,
+    # so each detector in the contract carries its share (0.0 if it didn't fire).
+    for d in detectors:
+        d["contribution"] = result.components.get(d["key"], 0.0)
+    total = result.total
+    the_band = result.band
 
     # Source-integration badges (derived counts).
     layering_chain = any(kyc_by_id.get(eid) == "thin_file" for eid in circular_ents)
@@ -260,7 +271,8 @@ def build_case_contract(driver, build_report: dict) -> dict:
         "case": case,
         "graph": {"nodes": nodes, "edges": edges},
         "detectors": detectors,
-        "score": {"total": total, "band": the_band, "bands": BANDS},
+        "score": {"total": total, "band": the_band, "bands": result.bands,
+                  "engine": result.engine_name},
         "recommendation": {
             "action": the_band,
             "headline": _headline(the_band),

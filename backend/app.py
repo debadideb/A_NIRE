@@ -148,6 +148,7 @@ def _audit(case_id: str, contract: dict) -> dict:
             "headline": rec["headline"],
             "score": score["total"],
             "band": score["band"],
+            "engine": score.get("engine"),
             "rationale_source": rec["rationale_source"],
         },
         "decisions": store.list_decisions(case_id),
@@ -169,6 +170,7 @@ def post_decision(case_id: str, body: DecisionIn) -> dict:
     row = store.record_decision(
         case_id, action, decided_by, notes,
         score["total"], score["band"], rec["rationale_source"],
+        score.get("engine"),  # name the scorer the analyst acted on
     )
     return {"decision": row, "audit": _audit(case_id, contract)}
 
