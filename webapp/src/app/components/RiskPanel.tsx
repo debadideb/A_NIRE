@@ -40,10 +40,12 @@ interface Props {
   amlCase: AMLCase | null;
   progress: CaseProgress | null;
   decidedBy: string;
+  isolatedCategory: string | null;
+  onIsolate: (category: string) => void;
   onProgressChange: (p: CaseProgress) => void;
 }
 
-export function RiskPanel({ amlCase, progress, decidedBy, onProgressChange }: Props) {
+export function RiskPanel({ amlCase, progress, decidedBy, isolatedCategory, onIsolate, onProgressChange }: Props) {
   const [expandedFactors, setExpandedFactors] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<'sar' | 'trail'>('sar');
   const [models, setModels] = useState<ModelsInfo | null>(null);
@@ -196,11 +198,23 @@ export function RiskPanel({ amlCase, progress, decidedBy, onProgressChange }: Pr
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${FACTOR_COLORS[factor.category].dot}`} />
                   <span className="text-xs font-medium text-slate-700">{factor.name}</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   {/* Rule-based contribution (replaces the misleading "AI" term) */}
                   {factor.contribution != null
                     ? <span className="text-[10px] font-mono text-slate-500">+{factor.contribution.toFixed(2)}</span>
                     : <span className="text-[10px] text-gray-400">{factor.detectors} det.</span>}
+                  {/* Isolate this pattern's subgraph in the network view */}
+                  <button
+                    onClick={e => { e.stopPropagation(); onIsolate(factor.category); }}
+                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
+                      isolatedCategory === factor.category
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}
+                    title={isolatedCategory === factor.category ? 'Show the whole network' : 'Isolate this pattern in the graph'}
+                  >
+                    {isolatedCategory === factor.category ? 'Isolated' : 'Isolate'}
+                  </button>
                   <span className="text-[10px] text-indigo-600 font-medium">
                     {expandedFactors.has(i) ? 'Less' : 'Examine'}
                   </span>

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Network, Maximize, Minimize, ShieldAlert } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, Network, ExternalLink, ShieldAlert } from 'lucide-react';
 import { GraphNode, GraphEdge } from '../data/cases';
 import { gbpCompact } from '../data/adapter';
 import { EntityModal } from './EntityModal';
@@ -32,9 +32,11 @@ interface Props {
   savedPositions?: Record<string, { x: number; y: number }>;
   onNodeSelect?: (id: string | null) => void;
   onPositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
+  isPopout?: boolean;                 // true when rendered in the pop-out window
+  isolateCategory?: string | null;    // isolate one risk pattern's subgraph (from RiskPanel)
 }
 
-export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositions, onNodeSelect, onPositionsChange }: Props) {
+export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositions, onNodeSelect, onPositionsChange, isPopout = false, isolateCategory = null }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [modalEntity, setModalEntity] = useState<string | null>(null); // double-click detail
@@ -49,18 +51,21 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [threshold, setThreshold] = useState(0); // contribution % filter
-  const [popped, setPopped] = useState(false);   // full-screen pop-out
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null); // tooltip anchor
 
   const draggingRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
   const wasDragged = useRef(false);
   const selectedIdRef = useRef<string | null>(null);
 
-  // Calculate which edges pass the contribution threshold
+  // Visible edges = pass the contribution slider AND (if a risk factor is being
+  // isolated) match that pattern. Both gates feed node visibility below, so
+  // isolating "Circular flow" greys out everything except the circular subgraph.
   const totalVolume = edges.reduce((s, e) => s + e.amountValue, 0);
   const visibleEdgeIds = new Set(
     edges
-      .filter(e => threshold === 0 || (e.amountValue / totalVolume) * 100 >= threshold)
+      .filter(e =>
+        (threshold === 0 || (e.amountValue / totalVolume) * 100 >= threshold) &&
+        (!isolateCategory || e.category === isolateCategory))
       .map(e => e.id)
   );
   // Nodes with no visible edges get dimmed (unless they are connected to visible ones or they're the main entity)
@@ -347,13 +352,12 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
     if (node) setModalEntity(node.id);
   };
 
-  // Esc exits the full-screen pop-out.
-  useEffect(() => {
-    if (!popped) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopped(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [popped]);
+  // Open the graph in a SEPARATE browser window via the ?popout route (a fresh
+  // React root there, so native events work — a cross-window portal would not).
+  const openPopout = () => {
+    const url = `${location.pathname}?popout=${encodeURIComponent(caseId)}`;
+    window.open(url, `amlGraph_${caseId}`, 'width=1280,height=860,menubar=no,toolbar=no,location=no');
+  };
 
   const resetLayout = () => {
     selectedIdRef.current = null;
@@ -368,12 +372,7 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
   const totalEdges = edges.length;
 
   return (
-    <div
-      className={popped
-        ? 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#e8eaed]'
-        : 'flex-1 flex flex-col overflow-hidden relative'}
-      ref={containerRef}
-    >
+    <div className="flex-1 flex flex-col overflow-hidden relative" ref={containerRef}>
       {/* Toolbar */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2 flex-wrap">
         <button
@@ -383,14 +382,17 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
           <Network size={11} /> Reset view
         </button>
 
-        {/* Pop-out / exit full screen — keeps every control (zoom, isolate, slider). */}
-        <button
-          className="bg-white/90 backdrop-blur-sm rounded-md px-2.5 py-1.5 text-[11px] text-slate-600 border border-gray-200 hover:bg-white shadow-sm flex items-center gap-1.5 transition-colors"
-          onClick={() => setPopped(p => !p)}
-          title={popped ? 'Exit full screen (Esc)' : 'Pop out the graph to full screen'}
-        >
-          {popped ? <><Minimize size={11} /> Exit full screen</> : <><Maximize size={11} /> Pop out</>}
-        </button>
+        {/* Pop out the graph into its own browser window (hidden when already
+            inside the pop-out window). Keeps every control. */}
+        {!isPopout && (
+          <button
+            className="bg-white/90 backdrop-blur-sm rounded-md px-2.5 py-1.5 text-[11px] text-slate-600 border border-gray-200 hover:bg-white shadow-sm flex items-center gap-1.5 transition-colors"
+            onClick={openPopout}
+            title="Open the graph in a separate window"
+          >
+            <ExternalLink size={11} /> Pop out
+          </button>
+        )}
 
         {/* Contribution % slider */}
         <div className="bg-white/90 backdrop-blur-sm rounded-md px-3 py-1.5 border border-gray-200 shadow-sm flex items-center gap-2.5">
@@ -418,7 +420,6 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
         {[
           { icon: <ZoomIn size={13} />, action: () => setZoom(z => Math.min(z + 0.2, 3)), tip: 'Zoom in' },
           { icon: <ZoomOut size={13} />, action: () => setZoom(z => Math.max(z - 0.2, 0.4)), tip: 'Zoom out' },
-          { icon: <RotateCcw size={13} />, action: resetLayout, tip: 'Reset' },
           { icon: <Maximize2 size={13} />, action: () => setZoom(1), tip: 'Fit' },
         ].map((btn, i) => (
           <button
@@ -454,6 +455,13 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
       {selectedId && (
         <div className="absolute bottom-4 right-3 z-10 bg-indigo-600 text-white rounded-lg px-3 py-2 text-[11px] shadow-md">
           Isolated: <strong>{nodes.find(n => n.id === selectedId)?.label}</strong> · Click to clear
+        </div>
+      )}
+
+      {/* Risk-factor isolation hint (driven from the RiskPanel) */}
+      {isolateCategory && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-slate-800 text-white rounded-lg px-3 py-1.5 text-[11px] shadow-md">
+          Isolating <strong className="capitalize">{isolateCategory}</strong> pattern · clear it from the risk factor card
         </div>
       )}
 

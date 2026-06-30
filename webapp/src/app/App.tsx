@@ -34,6 +34,9 @@ export default function App() {
   const [progress, setProgress] = useState<CaseProgress | null>(null);
   const [loadingCase, setLoadingCase] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Risk-factor isolation: which pattern's subgraph the graph should isolate
+  // (set from the RiskPanel cards). null = show the whole network.
+  const [isolateCategory, setIsolateCategory] = useState<string | null>(null);
 
   const handleLogin = (userId: string, name: string, role: string) => {
     saveUser(userId);
@@ -48,6 +51,7 @@ export default function App() {
 
   const handleCaseSelect = useCallback(async (c: AMLCase) => {
     setLoadError(null);
+    setIsolateCategory(null); // clear any prior isolation when switching cases
 
     // Only the live case fetches the real backend contract; demo stubs render
     // their static mock data as-is (visibly demo).
@@ -125,6 +129,7 @@ export default function App() {
             initialNodes={selectedCase.nodes}
             edges={selectedCase.edges}
             savedPositions={progress?.nodePositions}
+            isolateCategory={isolateCategory}
             onNodeSelect={() => {}}
             onPositionsChange={handlePositionsChange}
           />
@@ -153,6 +158,8 @@ export default function App() {
           amlCase={selectedCase}
           progress={progress}
           decidedBy={auth.userId}
+          isolatedCategory={isolateCategory}
+          onIsolate={(cat) => setIsolateCategory(prev => (prev === cat ? null : cat))}
           onProgressChange={handleProgressChange}
         />
       </div>
