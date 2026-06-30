@@ -4,9 +4,16 @@ import { PopoutGraph } from "./app/components/PopoutGraph.tsx";
 import "./styles/index.css";
 
 // `?popout=<caseId>` renders just the graph (the separate pop-out window);
-// otherwise the full console.
-const popoutCase = new URLSearchParams(window.location.search).get("popout");
+// `&renderer=<id>` carries the view the user had selected. Otherwise the full
+// console.
+const params = new URLSearchParams(window.location.search);
+const popoutCase = params.get("popout");
+const popoutRenderer = params.get("renderer");
 
 createRoot(document.getElementById("root")!).render(
-  popoutCase ? <PopoutGraph caseId={popoutCase} /> : <App />,
+  popoutCase ? (
+    <PopoutGraph caseId={popoutCase} renderer={popoutRenderer ?? undefined} />
+  ) : (
+    <App />
+  ),
 );

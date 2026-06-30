@@ -3,12 +3,13 @@ import { NetworkGraph } from './NetworkGraph';
 import { AMLCase, CASES, LIVE_CASE_ID } from '../data/cases';
 import { fetchCase } from '../data/api';
 import { contractToAMLCase } from '../data/adapter';
+import { RendererId } from './graph/shared';
 
 // Standalone graph view rendered in the pop-out window (URL `?popout=<caseId>`).
 // It is its own React root, so canvas/button events work natively — unlike a
 // cross-window portal. The live case fetches the real contract; demo cases use
-// their static mock data.
-export function PopoutGraph({ caseId }: { caseId: string }) {
+// their static mock data. `renderer` carries the view the user had selected.
+export function PopoutGraph({ caseId, renderer }: { caseId: string; renderer?: string }) {
   const [amlCase, setAmlCase] = useState<AMLCase | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +47,7 @@ export function PopoutGraph({ caseId }: { caseId: string }) {
           caseId={amlCase.id}
           isLive={!!amlCase.isLive}
           isPopout
+          initialRenderer={(['canvas', 'cytoscape', 'g6'].includes(renderer ?? '') ? renderer : 'canvas') as RendererId}
           initialNodes={amlCase.nodes}
           edges={amlCase.edges}
         />

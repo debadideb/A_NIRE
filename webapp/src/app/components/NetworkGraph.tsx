@@ -1,8 +1,19 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Network, ExternalLink, ShieldAlert } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import { ZoomIn, ZoomOut, Maximize2, Network, ExternalLink, ShieldAlert, Layers } from 'lucide-react';
 import { GraphNode, GraphEdge } from '../data/cases';
 import { gbpCompact } from '../data/adapter';
 import { EntityModal } from './EntityModal';
+import { RendererId, RENDERERS } from './graph/shared';
+
+// Cytoscape and G6 are heavy (~600 kB gzip together) — code-split them so the
+// default canvas view stays lean and they only download when actually selected
+// (matching the project's "lazy-load alt renderers" approach for NVL).
+const CytoscapeSurface = lazy(() =>
+  import('./graph/CytoscapeSurface').then(m => ({ default: m.CytoscapeSurface })),
+);
+const G6Surface = lazy(() =>
+  import('./graph/G6Surface').then(m => ({ default: m.G6Surface })),
+);
 
 // Virtual canvas dimensions
 const VW = 720;
@@ -34,12 +45,18 @@ interface Props {
   onPositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
   isPopout?: boolean;                 // true when rendered in the pop-out window
   isolateCategory?: string | null;    // isolate one risk pattern's subgraph (from RiskPanel)
+  initialRenderer?: RendererId;       // pre-selected view (carried through the pop-out URL)
 }
 
-export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositions, onNodeSelect, onPositionsChange, isPopout = false, isolateCategory = null }: Props) {
+export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositions, onNodeSelect, onPositionsChange, isPopout = false, isolateCategory = null, initialRenderer = 'canvas' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [modalEntity, setModalEntity] = useState<string | null>(null); // double-click detail
+  // Pluggable renderer: the default canvas flow-map, or the vendored Cytoscape /
+  // G6 views. The contribution slider, risk-factor isolate, hover overview and
+  // entity modal are shared chrome that wrap whichever engine is active.
+  const [renderer, setRenderer] = useState<RendererId>(initialRenderer);
+  const [resetSignal, setResetSignal] = useState(0); // bumped by "Reset view" → alt renderers re-layout
 
   // Apply saved positions on first render
   const resolvedNodes: GraphNode[] = initialNodes.map(n =>
@@ -355,7 +372,7 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
   // Open the graph in a SEPARATE browser window via the ?popout route (a fresh
   // React root there, so native events work — a cross-window portal would not).
   const openPopout = () => {
-    const url = `${location.pathname}?popout=${encodeURIComponent(caseId)}`;
+    const url = `${location.pathname}?popout=${encodeURIComponent(caseId)}&renderer=${renderer}`;
     window.open(url, `amlGraph_${caseId}`, 'width=1280,height=860,menubar=no,toolbar=no,location=no');
   };
 
@@ -366,6 +383,14 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
     setThreshold(0);
     setSelectedId(null);
     onNodeSelect?.(null);
+    setResetSignal(s => s + 1); // tell the active alt renderer to re-run its layout
+  };
+
+  // Hover/double-click reported up by the alt renderers feed the SAME shared
+  // tooltip + entity modal the canvas uses.
+  const handleSurfaceHover = (node: GraphNode | null, clientX: number, clientY: number) => {
+    setHoveredId(node?.id ?? null);
+    setHoverPos(node ? { x: clientX, y: clientY } : null);
   };
 
   const visibleCount = visibleEdgeIds.size;
@@ -375,6 +400,23 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
     <div className="flex-1 flex flex-col overflow-hidden relative" ref={containerRef}>
       {/* Toolbar */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2 flex-wrap">
+        {/* Renderer (view) switcher — Default canvas / Cytoscape / G6 */}
+        <div
+          className="bg-white/90 backdrop-blur-sm rounded-md border border-gray-200 shadow-sm flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5"
+          title="Graph renderer"
+        >
+          <Layers size={11} className="text-slate-400" />
+          <select
+            value={renderer}
+            onChange={e => setRenderer(e.target.value as RendererId)}
+            className="text-[11px] text-slate-600 bg-transparent outline-none cursor-pointer"
+          >
+            {RENDERERS.map(r => (
+              <option key={r.id} value={r.id}>{r.label} — {r.hint}</option>
+            ))}
+          </select>
+        </div>
+
         <button
           className="bg-white/90 backdrop-blur-sm rounded-md px-2.5 py-1.5 text-[11px] text-slate-600 border border-gray-200 hover:bg-white shadow-sm flex items-center gap-1.5 transition-colors"
           onClick={resetLayout}
@@ -415,23 +457,26 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
         </div>
       </div>
 
-      {/* Zoom controls */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
-        {[
-          { icon: <ZoomIn size={13} />, action: () => setZoom(z => Math.min(z + 0.2, 3)), tip: 'Zoom in' },
-          { icon: <ZoomOut size={13} />, action: () => setZoom(z => Math.max(z - 0.2, 0.4)), tip: 'Zoom out' },
-          { icon: <Maximize2 size={13} />, action: () => setZoom(1), tip: 'Fit' },
-        ].map((btn, i) => (
-          <button
-            key={i}
-            onClick={btn.action}
-            title={btn.tip}
-            className="bg-white/90 backdrop-blur-sm rounded-md p-1.5 border border-gray-200 hover:bg-white shadow-sm text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            {btn.icon}
-          </button>
-        ))}
-      </div>
+      {/* Zoom controls (canvas only — the alt renderers draw their own, wired to
+          their engine's viewport) */}
+      {renderer === 'canvas' && (
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
+          {[
+            { icon: <ZoomIn size={13} />, action: () => setZoom(z => Math.min(z + 0.2, 3)), tip: 'Zoom in' },
+            { icon: <ZoomOut size={13} />, action: () => setZoom(z => Math.max(z - 0.2, 0.4)), tip: 'Zoom out' },
+            { icon: <Maximize2 size={13} />, action: () => setZoom(1), tip: 'Fit' },
+          ].map((btn, i) => (
+            <button
+              key={i}
+              onClick={btn.action}
+              title={btn.tip}
+              className="bg-white/90 backdrop-blur-sm rounded-md p-1.5 border border-gray-200 hover:bg-white shadow-sm text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              {btn.icon}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Legend */}
       <div className="absolute bottom-4 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 shadow-sm p-2.5 text-[10px] text-gray-600 space-y-1.5">
@@ -465,15 +510,52 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
         </div>
       )}
 
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onDoubleClick={handleDoubleClick}
-      />
+      {renderer === 'canvas' ? (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onDoubleClick={handleDoubleClick}
+        />
+      ) : (
+        <Suspense
+          fallback={
+            <div className="flex-1 flex items-center justify-center" style={{ background: renderer === 'g6' ? '#0b0b0f' : '#262626' }}>
+              <div className="flex items-center gap-2 text-slate-400 text-xs">
+                <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                Loading {renderer === 'g6' ? 'G6' : 'Cytoscape'} renderer…
+              </div>
+            </div>
+          }
+        >
+          {renderer === 'cytoscape' ? (
+            <CytoscapeSurface
+              nodes={nodes}
+              edges={edges}
+              visibleEdgeIds={visibleEdgeIds}
+              visibleNodeIds={visibleNodeIds}
+              isLive={isLive}
+              resetSignal={resetSignal}
+              onHover={handleSurfaceHover}
+              onOpenEntity={setModalEntity}
+            />
+          ) : (
+            <G6Surface
+              nodes={nodes}
+              edges={edges}
+              visibleEdgeIds={visibleEdgeIds}
+              visibleNodeIds={visibleNodeIds}
+              isLive={isLive}
+              resetSignal={resetSignal}
+              onHover={handleSurfaceHover}
+              onOpenEntity={setModalEntity}
+            />
+          )}
+        </Suspense>
+      )}
 
       {/* Hover overview — entity at a glance (KYC / World-Check / transactions) */}
       {hoveredId && hoverPos && (() => {
