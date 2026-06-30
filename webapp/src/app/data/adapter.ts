@@ -170,6 +170,13 @@ export function contractToAMLCase(c: CaseContract): AMLCase {
       radius: rad.get(n.id) ?? 18,
       type,
       risk: nodeRisk(n),
+      // Carried for the hover overview (KYC / sanctions / role).
+      jurisdiction: n.jurisdiction,
+      kycStatus: n.kyc_status,
+      role: n.role,
+      sanctioned: n.flags.sanctioned,
+      shell: n.flags.shell,
+      subject: n.flags.subject,
     };
   });
 

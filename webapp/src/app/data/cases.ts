@@ -15,6 +15,13 @@ export interface GraphNode {
   radius: number;
   type: NodeType;
   risk: RiskLevel;
+  // Entity metadata for the hover overview (populated for the live case).
+  jurisdiction?: string;
+  kycStatus?: string;
+  role?: string;
+  sanctioned?: boolean;
+  shell?: boolean;
+  subject?: boolean;
 }
 
 export interface GraphEdge {

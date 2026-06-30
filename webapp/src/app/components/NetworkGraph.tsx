@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Network } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Network, Maximize, Minimize, ShieldAlert } from 'lucide-react';
 import { GraphNode, GraphEdge } from '../data/cases';
+import { gbpCompact } from '../data/adapter';
 import { EntityModal } from './EntityModal';
 
 // Virtual canvas dimensions
@@ -48,6 +49,8 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [threshold, setThreshold] = useState(0); // contribution % filter
+  const [popped, setPopped] = useState(false);   // full-screen pop-out
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null); // tooltip anchor
 
   const draggingRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
   const wasDragged = useRef(false);
@@ -310,6 +313,7 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
     } else {
       const node = hitTest(x, y);
       setHoveredId(node?.id ?? null);
+      setHoverPos(node ? { x: e.clientX, y: e.clientY } : null);
       e.currentTarget.style.cursor = node ? 'grab' : 'default';
     }
   };
@@ -330,6 +334,7 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
 
   const handleMouseLeave = () => {
     setHoveredId(null);
+    setHoverPos(null);
     draggingRef.current = null;
   };
 
@@ -341,6 +346,14 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
     const node = hitTest(x, y);
     if (node) setModalEntity(node.id);
   };
+
+  // Esc exits the full-screen pop-out.
+  useEffect(() => {
+    if (!popped) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopped(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [popped]);
 
   const resetLayout = () => {
     selectedIdRef.current = null;
@@ -355,7 +368,12 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
   const totalEdges = edges.length;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden relative" ref={containerRef}>
+    <div
+      className={popped
+        ? 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#e8eaed]'
+        : 'flex-1 flex flex-col overflow-hidden relative'}
+      ref={containerRef}
+    >
       {/* Toolbar */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2 flex-wrap">
         <button
@@ -363,6 +381,15 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
           onClick={resetLayout}
         >
           <Network size={11} /> Reset view
+        </button>
+
+        {/* Pop-out / exit full screen — keeps every control (zoom, isolate, slider). */}
+        <button
+          className="bg-white/90 backdrop-blur-sm rounded-md px-2.5 py-1.5 text-[11px] text-slate-600 border border-gray-200 hover:bg-white shadow-sm flex items-center gap-1.5 transition-colors"
+          onClick={() => setPopped(p => !p)}
+          title={popped ? 'Exit full screen (Esc)' : 'Pop out the graph to full screen'}
+        >
+          {popped ? <><Minimize size={11} /> Exit full screen</> : <><Maximize size={11} /> Pop out</>}
         </button>
 
         {/* Contribution % slider */}
@@ -439,6 +466,60 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
         onMouseLeave={handleMouseLeave}
         onDoubleClick={handleDoubleClick}
       />
+
+      {/* Hover overview — entity at a glance (KYC / World-Check / transactions) */}
+      {hoveredId && hoverPos && (() => {
+        const n = nodes.find(x => x.id === hoveredId);
+        if (!n) return null;
+        const sanctioned = n.sanctioned ?? n.type === 'sanctioned';
+        const shell = n.shell ?? n.type === 'shell';
+        const subject = n.subject ?? n.type === 'main';
+        const out = edges.filter(e => e.from === n.id);
+        const inc = edges.filter(e => e.to === n.id);
+        const sent = out.reduce((s, e) => s + e.amountValue, 0);
+        const recv = inc.reduce((s, e) => s + e.amountValue, 0);
+        const typeLabel = subject ? 'Subject' : sanctioned ? 'Sanctioned' : shell ? 'Shell' : 'Counterparty';
+        return (
+          <div
+            className="fixed z-[60] pointer-events-none w-60 bg-white rounded-lg shadow-xl border border-gray-200 p-3 text-[11px]"
+            style={{
+              left: Math.min(hoverPos.x + 16, window.innerWidth - 250),
+              top: Math.min(hoverPos.y + 16, window.innerHeight - 190),
+            }}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-semibold text-slate-800 truncate">{n.sublabel || n.label}</span>
+              <span className="text-[9px] font-mono text-gray-400 ml-2">{n.id}</span>
+            </div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${
+                sanctioned ? 'bg-red-50 border-red-200 text-red-700'
+                : shell ? 'bg-amber-50 border-amber-200 text-amber-700'
+                : subject ? 'bg-slate-100 border-slate-200 text-slate-700'
+                : 'bg-gray-50 border-gray-200 text-gray-500'}`}>{typeLabel}</span>
+              {n.jurisdiction && <span className="text-[10px] text-gray-500">{n.jurisdiction}</span>}
+            </div>
+            {n.kycStatus && (
+              <div className="flex justify-between text-[10px] mb-0.5">
+                <span className="text-gray-400">KYC</span><span className="text-slate-700">{n.kycStatus}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-[10px] mb-0.5">
+              <span className="text-gray-400">World-Check</span>
+              <span className={sanctioned ? 'text-red-600 font-medium flex items-center gap-1' : 'text-slate-600'}>
+                {sanctioned ? <><ShieldAlert size={10} /> Sanctions hit</> : 'No hit'}
+              </span>
+            </div>
+            <div className="flex justify-between text-[10px]">
+              <span className="text-gray-400">Transactions</span>
+              <span className="text-slate-700">{gbpCompact(sent)} out · {gbpCompact(recv)} in</span>
+            </div>
+            <div className="text-[9px] text-gray-400 mt-1.5">
+              {out.length + inc.length} flow(s){isLive ? ' · double-click for full detail' : ''}
+            </div>
+          </div>
+        );
+      })()}
 
       {modalEntity && (
         <EntityModal caseId={caseId} entityId={modalEntity} onClose={() => setModalEntity(null)} />
