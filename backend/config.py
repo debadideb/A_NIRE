@@ -44,9 +44,12 @@ OFFSHORE_JURISDICTIONS = {"VG", "KY", "PA", "SC", "CY"}
 # high_risk_outbound: N debits to a high-risk jurisdiction at/above this value.
 HIGH_VALUE_GBP = 150_000
 HIGH_RISK_OUTBOUND_MIN_COUNT = 10
-# structuring: many debits just under a reporting threshold to ONE counterparty.
+# structuring: many debits just under a reporting threshold to ONE counterparty,
+# clustered in time (structuring is *rapid* — spreading the same count over a year
+# is ordinary trading, so the near-threshold debits must fall within this window).
 STRUCTURING_BAND = (8_000, 10_000)
 STRUCTURING_MIN_COUNT = 15
+STRUCTURING_WINDOW_DAYS = 45
 # circular_flow: matched reciprocal round-trips (send £X, get £~X back soon).
 # tol/window are tight enough that only genuinely-matched pairs qualify — random
 # debit/credit coincidences in the background stay in single digits (measured),

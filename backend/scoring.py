@@ -113,11 +113,13 @@ def _structuring(driver, sid) -> dict:
     rows = _records(driver, """
         MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
         WHERE r.amount >= $lo AND r.amount < $hi
-        WITH c, count(r) AS cnt, sum(r.amount) AS tot, collect(r.key) AS keys
-        WHERE cnt >= $minc
+        WITH c, count(r) AS cnt, sum(r.amount) AS tot, collect(r.key) AS keys,
+             max(r.day) - min(r.day) AS span
+        WHERE cnt >= $minc AND span <= $win
         RETURN collect(c.entity_id) AS cps, sum(cnt) AS n, sum(tot) AS total,
                reduce(a=[], k IN collect(keys) | a + k)[..80] AS txns
-    """, sid=sid, lo=lo, hi=hi, minc=config.STRUCTURING_MIN_COUNT)
+    """, sid=sid, lo=lo, hi=hi, minc=config.STRUCTURING_MIN_COUNT,
+         win=config.STRUCTURING_WINDOW_DAYS)
     r = rows[0] if rows else {}
     cps = r.get("cps") or []
     if cps:
@@ -132,6 +134,11 @@ def _structuring(driver, sid) -> dict:
 
 
 def _circular(driver, sid) -> dict:
+    # n counts distinct OUTBOUND legs that were returned within tolerance/window
+    # (each `out` collapsed once via WITH c, out). A single credit could in theory
+    # answer several debits, but the tight tol (2%) + 5-day window keep background
+    # coincidences in single digits (measured), while a real loop yields >100 — so
+    # min-count 10 separates cleanly without needing strict one-to-one pairing.
     rows = _records(driver, """
         MATCH (s:Entity {entity_id:$sid})-[out:SENT {subject_id:$sid, direction:'D'}]->(c)
         MATCH (c)-[back:SENT {subject_id:$sid, direction:'C'}]->(s)
@@ -199,8 +206,9 @@ _EDGES = """
 MATCH (a:Entity)-[r:SENT {subject_id:$sid}]->(b:Entity)
 WITH a.entity_id AS source, b.entity_id AS target, r.direction AS direction,
      sum(r.amount) AS amount, count(r) AS cnt,
-     collect(DISTINCT r.channel) AS channels, max(r.txn_date) AS last_date
-RETURN source, target, direction, amount, cnt, channels, last_date
+     collect(DISTINCT r.channel) AS channels, max(r.txn_date) AS last_date,
+     collect(r.key)[..8] AS keys
+RETURN source, target, direction, amount, cnt, channels, last_date, keys
 ORDER BY amount DESC
 """
 
@@ -246,7 +254,9 @@ def build_case_contract(driver, build_report: dict, case: dict) -> dict:
         flags = {
             "subject": n["id"] == sid,
             "sanctioned": "Sanctioned" in labels,
-            "shell": n["id"] in ent_sets["shell_linkage"],
+            # Shell applies to the funded cluster members, never the subject
+            # itself (the shell detector's entity set is [subject] + cluster).
+            "shell": n["id"] != sid and n["id"] in ent_sets["shell_linkage"],
         }
         nodes.append({
             "id": n["id"],
@@ -272,6 +282,7 @@ def build_case_contract(driver, build_report: dict, case: dict) -> dict:
             "txn_date": e["last_date"],
             "channel": ", ".join(e["channels"][:3]),
             "count": e["cnt"],
+            "txn_ids": e["keys"],           # sample of underlying txn keys (capped)
             "pattern": cp_pattern.get(cp),
         })
 
@@ -402,19 +413,22 @@ def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
     reasons = sorted({d["name"] for d in contract["detectors"]
                       if d["fired"] and entity_id in d["entities"]})
 
-    # Aggregated flows between this entity and the subject, worst share first.
+    # Risky paths = the entity's flows that belong to a FIRED detector only (an
+    # edge with a pattern). Clean counterparties touch no fired pattern, so their
+    # list is empty — the modal then shows "no fired-detector transactions".
     edges = contract["graph"]["edges"]
     shares = contribution_shares(edges, entity_id)
     risky_paths = []
     for e in edges:
-        if entity_id not in (e["source"], e["target"]):
+        if e["pattern"] is None or entity_id not in (e["source"], e["target"]):
             continue
         sh = shares.get(e["id"])
         counterparty = e["target"] if e["source"] == entity_id else e["source"]
         risky_paths.append({
             "counterparty": counterparty,
             "direction": sh["direction"] if sh else "debit",
-            "reason": ", ".join(reasons) if e["pattern"] else "",
+            "reason": ", ".join(reasons),
+            "txn_ids": e["txn_ids"],
             "txn_count": e["count"],
             "amount": e["amount_gbp"],
             "currency": "GBP",
