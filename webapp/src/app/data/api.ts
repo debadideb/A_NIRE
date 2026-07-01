@@ -60,9 +60,11 @@ export interface RiskyPath {
   direction: 'debit' | 'credit';
   reason: string;
   txn_ids: string[];
+  txn_count: number;
   amount: number;
   currency: string;
   contribution_pct: number;
+  pattern: string | null;
 }
 
 export interface EntityDetail {
@@ -72,17 +74,19 @@ export interface EntityDetail {
     name: string;
     entity_type: string;
     jurisdiction: string;
-    incorporation_year: number | null;
-    kyc_status: string;
-    registered_address: string | null;
+    incorporation_date: string | null;
+    industry: string;
+    beneficial_owner: string | null;
+    kyc_risk_rating: string;
+    pep_flag: string;
   };
   worldcheck: {
     entity_id: string;
-    source: string;
-    list_name: string;
-    category: string;
-    match_strength: number;
-    hit_date: string;
+    match_category: string;
+    watchlist_source: string;
+    match_status: string;
+    match_score: number;
+    severity: string;
     screened_name: string;
   } | null;
   risky_paths: RiskyPath[];

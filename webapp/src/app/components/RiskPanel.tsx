@@ -5,9 +5,11 @@ import { CaseProgress, addFinding, saveCaseProgress, exportLog } from '../hooks/
 import { fetchModels, ModelsInfo, postDecision, regenerateRationale } from '../data/api';
 
 const FACTOR_COLORS: Record<RiskCategory, { dot: string; badge: string; text: string }> = {
-  circular:   { dot: 'bg-orange-400', badge: 'bg-orange-50 border-orange-200 text-orange-700',  text: 'text-orange-700' },
-  sanctioned: { dot: 'bg-red-500',    badge: 'bg-red-50 border-red-200 text-red-700',            text: 'text-red-700'   },
-  shell:      { dot: 'bg-amber-400',  badge: 'bg-amber-50 border-amber-200 text-amber-700',       text: 'text-amber-700' },
+  circular:    { dot: 'bg-orange-400',  badge: 'bg-orange-50 border-orange-200 text-orange-700',    text: 'text-orange-700'  },
+  sanctioned:  { dot: 'bg-red-500',     badge: 'bg-red-50 border-red-200 text-red-700',              text: 'text-red-700'     },
+  shell:       { dot: 'bg-amber-400',   badge: 'bg-amber-50 border-amber-200 text-amber-700',        text: 'text-amber-700'   },
+  high_risk:   { dot: 'bg-fuchsia-500', badge: 'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700',  text: 'text-fuchsia-700' },
+  structuring: { dot: 'bg-teal-500',    badge: 'bg-teal-50 border-teal-200 text-teal-700',           text: 'text-teal-700'    },
 };
 
 // The deterministic band — derived from the real thresholds (default 0.65/0.35),

@@ -1,10 +1,12 @@
 export type CaseStatus = 'ongoing' | 'closed' | 'not_started';
 export type RiskLevel = 'high' | 'medium' | 'low' | 'none';
 export type NodeType = 'main' | 'entity' | 'shell' | 'sanctioned';
-// 'shell' added so shell-linkage flows get their own colour (the backend fires
-// three detector patterns, not two).
-export type EdgeCategory = 'circular' | 'sanctioned' | 'shell' | 'normal';
-export type RiskCategory = 'circular' | 'sanctioned' | 'shell';
+// One colour per detector pattern — the backend now fires FIVE typologies, so
+// high-risk-outbound and structuring get their own categories too.
+export type EdgeCategory =
+  | 'circular' | 'sanctioned' | 'shell' | 'high_risk' | 'structuring' | 'normal';
+export type RiskCategory =
+  | 'circular' | 'sanctioned' | 'shell' | 'high_risk' | 'structuring';
 
 export interface GraphNode {
   id: string;

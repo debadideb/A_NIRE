@@ -59,6 +59,8 @@ function edgeCategory(pattern: string | null): EdgeCategory {
   if (pattern === 'circular') return 'circular';
   if (pattern === 'sanctioned') return 'sanctioned';
   if (pattern === 'shell') return 'shell';
+  if (pattern === 'high_risk') return 'high_risk';
+  if (pattern === 'structuring') return 'structuring';
   return 'normal';
 }
 
@@ -145,6 +147,8 @@ const FACTOR_CATEGORY: Record<string, RiskCategory> = {
   circular_flow: 'circular',
   sanctioned_exposure: 'sanctioned',
   shell_linkage: 'shell',
+  high_risk_outbound: 'high_risk',
+  structuring: 'structuring',
 };
 
 export function contractToAMLCase(c: CaseContract): AMLCase {

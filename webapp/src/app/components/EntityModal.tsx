@@ -51,7 +51,7 @@ export function EntityModal({ caseId, entityId, onClose }: Props) {
             {detail && (
               <div className="text-[11px] text-gray-500 mt-0.5">
                 {detail.kyc.entity_type} · {detail.kyc.jurisdiction}
-                {detail.kyc.incorporation_year ? ` · inc. ${detail.kyc.incorporation_year}` : ''}
+                {detail.kyc.incorporation_date ? ` · inc. ${detail.kyc.incorporation_date}` : ''}
               </div>
             )}
           </div>
@@ -74,10 +74,14 @@ export function EntityModal({ caseId, entityId, onClose }: Props) {
               <div>
                 <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1.5 font-medium">KYC</div>
                 <dl className="grid grid-cols-3 gap-y-1.5 text-[11px]">
-                  <dt className="text-gray-400">Status</dt>
-                  <dd className="col-span-2 text-slate-700">{detail.kyc.kyc_status}</dd>
-                  <dt className="text-gray-400">Address</dt>
-                  <dd className="col-span-2 text-slate-700">{detail.kyc.registered_address ?? '—'}</dd>
+                  <dt className="text-gray-400">Risk</dt>
+                  <dd className="col-span-2 text-slate-700">
+                    {detail.kyc.kyc_risk_rating}{detail.kyc.pep_flag === 'Y' ? ' · PEP' : ''}
+                  </dd>
+                  <dt className="text-gray-400">Industry</dt>
+                  <dd className="col-span-2 text-slate-700">{detail.kyc.industry}</dd>
+                  <dt className="text-gray-400">Owner</dt>
+                  <dd className="col-span-2 text-slate-700">{detail.kyc.beneficial_owner ?? '—'}</dd>
                 </dl>
               </div>
 
@@ -89,9 +93,11 @@ export function EntityModal({ caseId, entityId, onClose }: Props) {
                   </div>
                   <dl className="grid grid-cols-3 gap-y-1 text-[11px]">
                     <dt className="text-red-400">List</dt>
-                    <dd className="col-span-2 text-red-800">{detail.worldcheck.list_name} ({detail.worldcheck.category})</dd>
+                    <dd className="col-span-2 text-red-800">{detail.worldcheck.watchlist_source} ({detail.worldcheck.match_category})</dd>
                     <dt className="text-red-400">Match</dt>
-                    <dd className="col-span-2 text-red-800">{detail.worldcheck.match_strength} · {detail.worldcheck.hit_date}</dd>
+                    <dd className="col-span-2 text-red-800">{detail.worldcheck.match_score} · {detail.worldcheck.match_status}</dd>
+                    <dt className="text-red-400">Severity</dt>
+                    <dd className="col-span-2 text-red-800">{detail.worldcheck.severity}</dd>
                     <dt className="text-red-400">Name</dt>
                     <dd className="col-span-2 text-red-800">{detail.worldcheck.screened_name}</dd>
                   </dl>
