@@ -29,7 +29,7 @@ import providers                              # noqa: E402
 import store                                  # noqa: E402
 from graphdb import build_graph, get_driver  # noqa: E402
 from llm import generate_rationale            # noqa: E402
-from scoring import build_case_contract       # noqa: E402
+from scoring import build_case_contract, build_entity_detail  # noqa: E402
 
 FRONTEND_DIR = _HERE.parent / "frontend"
 
@@ -148,6 +148,7 @@ def _audit(case_id: str, contract: dict) -> dict:
             "headline": rec["headline"],
             "score": score["total"],
             "band": score["band"],
+            "engine": score.get("engine"),
             "rationale_source": rec["rationale_source"],
         },
         "decisions": store.list_decisions(case_id),
@@ -169,6 +170,7 @@ def post_decision(case_id: str, body: DecisionIn) -> dict:
     row = store.record_decision(
         case_id, action, decided_by, notes,
         score["total"], score["band"], rec["rationale_source"],
+        score.get("engine"),  # name the scorer the analyst acted on
     )
     return {"decision": row, "audit": _audit(case_id, contract)}
 
@@ -213,6 +215,16 @@ def get_audit(case_id: str) -> dict:
     """The audited decision trail for a case."""
     contract = _require_case(case_id)
     return _audit(case_id, contract)
+
+
+@app.get("/api/case/{case_id}/entity/{entity_id}")
+def get_entity(case_id: str, entity_id: str) -> dict:
+    """Entity detail for the double-click modal: KYC + World-Check + risky paths."""
+    contract = _require_case(case_id)
+    detail = build_entity_detail(contract, entity_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"Unknown entity '{entity_id}'")
+    return detail
 
 
 # Mount the frontend LAST so /api/* routes always win. html=True serves

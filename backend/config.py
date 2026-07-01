@@ -40,6 +40,12 @@ DETECTOR_WEIGHTS = {
 # --- Band thresholds on the total score ---
 BANDS = {"sar": 0.65, "edd": 0.35}  # >=0.65 SAR; 0.35-0.65 EDD; <0.35 clear
 
+# --- Scoring engine selection ---
+# Which scorer turns detector evidence into the total/band (see engine.py).
+# Default reproduces the acceptance test (0.74 -> SAR); override via env to swap
+# in another engine (e.g. SCORING_ENGINE=stub) with no other code changes.
+SCORING_ENGINE = os.getenv("SCORING_ENGINE", "rule_based_v1")
+
 
 def band(total: float) -> str:
     """Map a total score to its recommendation band."""

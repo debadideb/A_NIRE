@@ -1,3 +1,33 @@
-entity_id,source,list_name,category,added_date,reason
-E090,internal_watchlist,FCC Internal,prior_sar,2025-11-02,Subject of prior SAR (unrelated case)
-E091,internal_watchlist,FCC Internal,high_risk_customer,2026-01-18,Adverse media - unrelated
+entity_id,entity_name,list_type,reason,risk_level,added_by,date_added,active_flag
+E10000,Quill Global,Internal AML Watchlist,Circular fund-flow participant,Medium,TMS-AUTO,07/10/2025,Y
+E10002,Beacon Ltd,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-A,26/12/2025,Y
+E10004,Pallas Group,Internal AML Watchlist,Sanctioned jurisdiction exposure,High,FCU-A,16/07/2025,Y
+E10005,Onyx Global,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-A,01/10/2025,Y
+E11000,Vertex Partners,Internal AML Watchlist,Circular fund-flow participant,Medium,TMS-AUTO,12/09/2025,Y
+E11001,Meridian Logistics,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-A,16/12/2025,Y
+E11004,Cascade Partners,Internal AML Watchlist,Sanctioned jurisdiction exposure,High,FCU-A,09/06/2025,Y
+E11005,Vertex Holdings,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-A,13/12/2025,Y
+E11006,Northgate Consulting,Internal AML Watchlist,Suspected shell / pass-through entity,High,TMS-AUTO,17/11/2025,Y
+E11007,Silverline Consulting,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-B,13/11/2025,Y
+E12000,Silverline Services,Internal AML Watchlist,Circular fund-flow participant,Medium,TMS-AUTO,20/10/2025,Y
+E12001,Pallas Ltd,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-A,03/08/2025,Y
+E12002,Cobalt Ventures,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-A,05/12/2025,Y
+E12003,Cascade Services,Internal AML Watchlist,High-risk intermediary corridor,Medium,FCU-B,21/10/2025,Y
+E12004,Quill Enterprises,Internal AML Watchlist,Sanctioned jurisdiction exposure,High,TMS-AUTO,21/11/2025,Y
+E12005,Pallas Partners,Internal AML Watchlist,Suspected shell / pass-through entity,High,TMS-AUTO,24/09/2025,Y
+E12007,Meridian Global,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-A,14/06/2025,Y
+E13000,Ironwood Enterprises,Internal AML Watchlist,Circular fund-flow participant,Medium,TMS-AUTO,02/10/2025,Y
+E13001,Pallas Consulting,Internal AML Watchlist,Circular fund-flow participant,Medium,TMS-AUTO,24/11/2025,Y
+E13002,Beacon Enterprises,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-A,05/11/2025,Y
+E13004,Nova Ventures,Internal AML Watchlist,Sanctioned jurisdiction exposure,High,FCU-B,17/10/2025,Y
+E13005,Beacon Enterprises,Internal AML Watchlist,Suspected shell / pass-through entity,High,TMS-AUTO,06/08/2025,Y
+E13006,Harbour Group,Internal AML Watchlist,Suspected shell / pass-through entity,High,TMS-AUTO,28/12/2025,Y
+E13007,Silverline Consulting,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-A,01/12/2025,Y
+E14000,Quill Trading Co,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-B,17/08/2025,Y
+E14001,Meridian Consulting,Internal AML Watchlist,Circular fund-flow participant,Medium,TMS-AUTO,21/10/2025,Y
+E14002,Silverline Global,Internal AML Watchlist,Circular fund-flow participant,Medium,FCU-B,12/10/2025,Y
+E14003,Onyx Group,Internal AML Watchlist,High-risk intermediary corridor,Medium,TMS-AUTO,12/07/2025,Y
+E14004,Vertex Consulting,Internal AML Watchlist,Sanctioned jurisdiction exposure,High,FCU-A,22/10/2025,Y
+E14005,Northgate Group,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-A,17/11/2025,Y
+E14006,Silverline Partners,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-A,02/07/2025,Y
+E14007,Zenith Consulting,Internal AML Watchlist,Suspected shell / pass-through entity,High,FCU-B,06/07/2025,Y
