@@ -4,278 +4,334 @@ E00204,Meridian Logistics PLC,10001272,Public Limited Company,GB,13/10/1996,Comm
 E00337,Halcyon Trading Group,10001544,Public Limited Company,GB,23/08/1999,Import/Export,1000105,BO1018,Medium,N,15/03/2026
 E00452,Sterling Bridge Holdings,10001876,Public Limited Company,GB,06/08/2019,Financial Holdings,1000181,BO1026,Medium,N,13/11/2025
 E00519,Orion Freight Services Ltd,10002045,Public Limited Company,GB,17/07/2020,Freight & Logistics,1000273,BO1027,Medium,N,04/10/2025
-E10000,Nova Ventures,10002299,Private Limited Company,CH,22/04/2017,Import/Export,1000301,BO1028,Low,N,04/05/2026
-E10001,Summit Group,10002993,Limited Liability Partnership,AE,18/09/1997,Consulting Services,1000343,BO1031,High,N,05/05/2026
-E10002,Nova Enterprises,10003608,Sole Trader,VG,08/03/2013,Freight & Logistics,1000437,BO1033,High,N,26/06/2026
-E10003,Cascade Holdings,10004072,Private Limited Company,IR,10/04/2018,Freight & Logistics,1000512,BO1041,High,N,06/04/2026
-E10004,Silverline Global,10004458,Sole Trader,VG,19/02/1999,Manufacturing,1000598,BO1042,High,N,24/02/2026
-E10005,Regent Group,10004575,Limited Liability Partnership,PA,07/05/2006,Import/Export,1000649,BO1046,High,N,01/12/2025
-E10006,Halcyon Holdings,10005088,Private Limited Company,KY,17/10/2011,Consulting Services,1000714,BO1055,High,N,13/08/2025
-E10007,Summit Global,10005346,Private Limited Company,IE,04/05/2018,Shipping,1000789,BO1062,Low,N,10/09/2025
-E10008,Delta Consulting,10006201,Private Limited Company,IT,21/06/2011,Import/Export,1000842,BO1066,Low,N,19/05/2026
-E10009,Vertex Logistics,10006753,Public Limited Company,ES,20/12/2017,Financial Holdings,1000891,BO1075,Low,N,11/02/2026
-E10010,Quill Ventures,10007277,Limited Liability Partnership,NL,08/04/2011,Shipping,1000978,BO1083,Low,N,12/10/2025
-E10011,Summit Logistics,10008175,Limited Liability Partnership,ES,04/01/2015,Commodity Trading,1000992,BO1084,Low,N,24/10/2025
-E10012,Pallas Partners,10008814,Sole Trader,GB,12/01/2000,Real Estate,1001068,BO1090,Low,N,01/03/2026
-E10013,Apex Ltd,10008972,Limited Liability Partnership,ES,21/02/2002,Real Estate,1001135,BO1092,Low,N,31/03/2026
-E10014,Titan Logistics,10009317,Sole Trader,DE,24/04/2009,Freight & Logistics,1001203,BO1093,Low,N,10/12/2025
-E10015,Orion Trading,10010046,Public Limited Company,AU,13/07/1995,Consulting Services,1001229,BO1097,Low,N,10/11/2025
-E10016,Zephyr Holdings,10010180,Limited Liability Partnership,ES,24/10/1999,Import/Export,1001256,BO1099,Low,N,13/08/2025
-E10017,Silverline Holdings,10010804,Limited Liability Partnership,SE,12/10/2001,Shipping,1001310,BO1100,Low,N,11/06/2026
-E10018,Zephyr Industries,10010910,Limited Liability Partnership,AU,26/09/2001,Precious Metals,1001403,BO1101,Low,N,24/10/2025
-E10019,Nova Consulting,10011110,Public Limited Company,NL,10/09/1996,Consulting Services,1001447,BO1106,Low,N,09/08/2025
-E10020,Aurora Ventures,10011786,Private Limited Company,FR,05/03/2019,Commodity Trading,1001460,BO1113,Low,N,30/07/2025
-E10021,Ironclad Logistics,10011979,Limited Liability Partnership,CA,26/03/1996,Freight & Logistics,1001518,BO1117,Low,N,01/07/2025
-E10022,Cascade Trading,10012491,Private Limited Company,NL,07/03/1995,Freight & Logistics,1001531,BO1123,Low,N,22/10/2025
-E10023,Ironclad Consulting,10012848,Sole Trader,SE,12/04/2001,Commodity Trading,1001594,BO1131,Low,N,09/12/2025
-E10024,Atlas Holdings,10013274,Limited Liability Partnership,IE,22/05/2002,Precious Metals,1001622,BO1137,Low,N,30/05/2026
-E10025,Marlin Holdings,10013496,Private Limited Company,FR,13/01/2015,Commodity Trading,1001668,BO1140,Low,N,14/09/2025
-E10026,Crest Industries,10014443,Limited Liability Partnership,CA,13/03/1998,Consulting Services,1001715,BO1144,Low,N,22/03/2026
-E10027,Ironclad Partners,10014679,Private Limited Company,AU,06/05/1995,Shipping,1001741,BO1146,Low,N,02/01/2026
-E10028,Quill Capital,10015371,Limited Liability Partnership,US,17/12/2015,Freight & Logistics,1001775,BO1152,Low,N,29/04/2026
-E10029,Pinnacle Trading,10015560,Limited Liability Partnership,JP,02/01/2018,Import/Export,1001814,BO1156,Low,N,22/03/2026
-E10030,Ironclad Enterprises,10016411,Limited Liability Partnership,US,16/04/2002,Wholesale Trade,1001901,BO1157,Low,N,14/12/2025
-E10031,Ironclad Holdings,10016855,Private Limited Company,SE,16/06/2018,Manufacturing,1001941,BO1165,Low,N,27/02/2026
-E10032,Pinnacle Group,10017415,Sole Trader,JP,28/08/2014,Real Estate,1002007,BO1174,Low,N,25/11/2025
-E10033,Northgate Enterprises,10018205,Sole Trader,JP,05/10/1996,Import/Export,1002024,BO1180,Low,N,15/11/2025
-E10034,Crest Consulting,10018670,Limited Liability Partnership,FR,04/11/2014,Manufacturing,1002040,BO1183,Low,N,16/03/2026
-E10035,Apex Holdings,10018873,Limited Liability Partnership,DE,21/06/2019,Consulting Services,1002137,BO1191,Low,N,29/10/2025
-E10036,Harbour Partners,10019225,Limited Liability Partnership,NL,10/11/2015,Freight & Logistics,1002189,BO1195,Low,N,03/08/2025
-E10037,Marlin Ltd,10019368,Sole Trader,FR,09/06/2009,Shipping,1002209,BO1204,Low,N,18/02/2026
-E10038,Quill Logistics,10019741,Sole Trader,IT,06/05/2010,Consulting Services,1002246,BO1209,Low,N,24/07/2025
-E10039,Crest Logistics,10020188,Public Limited Company,ES,05/04/2005,Shipping,1002319,BO1211,Low,N,12/07/2025
-E10040,Beacon Consulting,10020680,Sole Trader,CH,15/09/2008,Wholesale Trade,1002412,BO1220,Low,N,28/11/2025
-E10041,Regent Logistics,10021540,Private Limited Company,IE,11/08/1998,Real Estate,1002460,BO1223,Low,N,29/01/2026
-E10042,Pallas Capital,10022170,Public Limited Company,AU,07/06/2004,Manufacturing,1002550,BO1226,Low,N,29/05/2026
-E10043,Willow Group,10022502,Sole Trader,NL,16/08/2005,Manufacturing,1002647,BO1235,Low,N,02/01/2026
-E10044,Sterling Consulting,10023163,Public Limited Company,IE,02/11/1997,Financial Holdings,1002667,BO1241,Low,N,06/07/2025
-E10045,Cascade Group,10023437,Private Limited Company,IT,17/12/2017,Import/Export,1002698,BO1248,Low,N,27/12/2025
-E10046,Cobalt Group,10024209,Sole Trader,DE,19/09/2000,Shipping,1002783,BO1253,Low,N,17/01/2026
-E10047,Harbour Group,10025156,Public Limited Company,GB,02/02/2002,Import/Export,1002851,BO1260,Low,N,09/11/2025
-E10048,Halcyon Global,10026012,Private Limited Company,CA,11/03/2009,Wholesale Trade,1002914,BO1266,Low,N,06/12/2025
-E10049,Verano Global,10026338,Limited Liability Partnership,CA,01/06/2006,Import/Export,1003001,BO1267,Low,N,08/04/2026
-E10050,Verano Logistics,10026459,Public Limited Company,CA,04/01/2000,Commodity Trading,1003062,BO1272,Low,N,23/05/2026
-E10051,Harbour Ventures,10026898,Limited Liability Partnership,IT,07/10/2007,Wholesale Trade,1003131,BO1278,Low,N,22/09/2025
-E10052,Vertex Consulting,10027638,Sole Trader,AU,14/02/2000,Freight & Logistics,1003217,BO1282,Low,N,21/03/2026
-E10053,Regent Capital,10027808,Public Limited Company,JP,25/10/2008,Wholesale Trade,1003314,BO1285,Low,N,20/08/2025
-E10054,Apex Consulting,10028512,Public Limited Company,DE,08/12/2005,Financial Holdings,1003348,BO1289,Low,N,04/04/2026
-E11000,Crest Global,10028763,Private Limited Company,FR,19/08/2012,Commodity Trading,1003409,BO1294,Low,N,11/02/2026
-E11001,Regent Industries,10029592,Sole Trader,DE,21/10/2009,Wholesale Trade,1003488,BO1301,Low,N,10/03/2026
-E11002,Meridian Enterprises,10030379,Limited Liability Partnership,DE,27/06/2013,Manufacturing,1003548,BO1304,Low,N,25/11/2025
-E11003,Quill Consulting,10031069,Public Limited Company,GB,06/02/2006,Freight & Logistics,1003568,BO1312,Low,N,14/04/2026
-E11004,Vertex Partners,10031259,Sole Trader,AU,12/02/2006,Consulting Services,1003657,BO1318,Low,N,10/09/2025
-E11005,Quill Group,10031866,Public Limited Company,US,28/11/2004,Wholesale Trade,1003735,BO1323,Low,N,23/01/2026
-E11006,Halcyon Ltd,10032034,Public Limited Company,NL,06/05/2008,Financial Holdings,1003795,BO1325,Low,N,27/04/2026
-E11007,Sterling Partners,10032321,Private Limited Company,DE,27/09/2017,Real Estate,1003857,BO1334,Low,N,24/12/2025
-E11008,Marlin Logistics,10032440,Private Limited Company,CA,10/11/2007,Commodity Trading,1003889,BO1341,Low,N,30/07/2025
-E11009,Onyx Industries,10032587,Public Limited Company,US,21/05/2020,Commodity Trading,1003974,BO1349,Low,N,07/11/2025
-E11010,Titan Capital,10032793,Public Limited Company,NL,08/10/1996,Wholesale Trade,1004030,BO1358,Low,N,28/05/2026
-E11011,Orion Enterprises,10033431,Sole Trader,CH,23/05/1998,Wholesale Trade,1004119,BO1365,Low,N,05/09/2025
-E11012,Granite Ventures,10033578,Limited Liability Partnership,NL,23/12/1996,Import/Export,1004168,BO1372,Low,N,04/03/2026
-E11013,Onyx Partners,10033859,Public Limited Company,CA,20/10/2009,Import/Export,1004185,BO1378,Low,N,24/10/2025
-E11014,Delta Enterprises,10034022,Private Limited Company,NL,19/06/2018,Consulting Services,1004254,BO1386,Low,N,16/02/2026
-E11015,Atlas Partners,10034893,Limited Liability Partnership,NL,08/06/2002,Consulting Services,1004292,BO1395,Low,N,24/02/2026
-E11016,Titan Global,10035111,Limited Liability Partnership,CH,25/05/2018,Shipping,1004389,BO1401,Low,N,11/05/2026
-E11017,Cobalt Ventures,10035957,Private Limited Company,IE,20/07/2015,Shipping,1004482,BO1409,Low,N,05/08/2025
-E11018,Nova Trading,10036083,Sole Trader,GB,03/03/2012,Freight & Logistics,1004540,BO1415,Low,N,17/11/2025
-E11019,Willow Ltd,10036994,Private Limited Company,CH,12/10/1998,Shipping,1004606,BO1424,Low,N,13/12/2025
-E11020,Quill Trading,10037314,Sole Trader,ES,27/11/1999,Shipping,1004634,BO1432,Low,N,19/06/2026
-E11021,Cobalt Holdings,10037718,Public Limited Company,CA,18/07/2002,Wholesale Trade,1004672,BO1436,Low,N,08/09/2025
-E11022,Silverline Industries,10038309,Private Limited Company,IE,08/07/2019,Real Estate,1004694,BO1444,Low,N,12/08/2025
-E11023,Sterling Trading,10038838,Public Limited Company,ES,18/02/2011,Financial Holdings,1004775,BO1447,Low,N,28/04/2026
-E11024,Vertex Industries,10039005,Sole Trader,IE,07/03/2015,Financial Holdings,1004804,BO1454,Low,N,26/04/2026
-E11025,Quill Ltd,10039484,Limited Liability Partnership,IE,01/08/2010,Manufacturing,1004822,BO1455,Low,N,28/06/2026
-E11026,Summit Capital,10039730,Public Limited Company,IT,09/01/2016,Import/Export,1004912,BO1460,Low,N,08/07/2025
-E11027,Orion Capital,10040416,Public Limited Company,JP,18/11/2010,Shipping,1004983,BO1464,Low,N,24/08/2025
-E11028,Halcyon Consulting,10040652,Private Limited Company,CA,28/06/1995,Wholesale Trade,1005014,BO1467,Low,N,02/02/2026
-E11029,Summit Holdings,10041444,Limited Liability Partnership,FR,03/11/2000,Consulting Services,1005037,BO1470,Low,N,13/12/2025
-E11030,Sterling Industries,10041689,Private Limited Company,NL,28/09/2001,Real Estate,1005092,BO1476,Low,N,12/06/2026
-E11031,Quill Enterprises,10042481,Private Limited Company,DE,19/08/2000,Commodity Trading,1005153,BO1480,Low,N,02/05/2026
-E11032,Cascade Consulting,10043115,Private Limited Company,FR,09/04/2014,Wholesale Trade,1005248,BO1489,Low,N,31/07/2025
-E11033,Granite Trading,10043750,Sole Trader,ES,16/09/2009,Import/Export,1005342,BO1495,Low,N,08/02/2026
-E11034,Beacon Global,10044222,Limited Liability Partnership,CH,17/12/2015,Freight & Logistics,1005432,BO1498,Low,N,28/05/2026
-E11035,Zephyr Group,10044864,Private Limited Company,ES,02/01/2020,Wholesale Trade,1005500,BO1506,Low,N,21/02/2026
-E11036,Zephyr Trading,10045503,Limited Liability Partnership,CA,02/06/2009,Commodity Trading,1005524,BO1512,Low,N,19/11/2025
-E11037,Beacon Holdings,10045715,Public Limited Company,SE,08/06/1995,Commodity Trading,1005620,BO1513,Low,N,29/01/2026
-E11038,Apex Capital,10046612,Limited Liability Partnership,JP,11/04/2020,Import/Export,1005644,BO1519,Low,N,21/11/2025
-E11039,Sterling Logistics,10047215,Limited Liability Partnership,SE,02/03/2015,Wholesale Trade,1005683,BO1523,Low,N,21/08/2025
-E11040,Pallas Holdings,10047371,Sole Trader,SE,22/12/2013,Import/Export,1005740,BO1524,Low,N,27/12/2025
-E11041,Silverline Group,10048010,Public Limited Company,AU,13/03/1995,Precious Metals,1005824,BO1528,Low,N,08/03/2026
-E11042,Pinnacle Capital,10048145,Private Limited Company,IT,16/06/2009,Manufacturing,1005838,BO1529,Low,N,24/02/2026
-E11043,Granite Group,10048935,Public Limited Company,FR,17/07/2004,Shipping,1005851,BO1535,Low,N,22/06/2026
-E11044,Marlin Industries,10049629,Limited Liability Partnership,GB,17/06/2019,Precious Metals,1005928,BO1540,Low,N,02/08/2025
-E11045,Verano Ltd,10050498,Limited Liability Partnership,ES,11/06/1998,Freight & Logistics,1005956,BO1544,Low,N,11/06/2026
-E11046,Halcyon Ventures,10051310,Limited Liability Partnership,CH,25/10/2001,Wholesale Trade,1005982,BO1548,Low,N,27/08/2025
-E11047,Aurora Ltd,10051693,Limited Liability Partnership,NL,14/06/2001,Import/Export,1006021,BO1551,Low,N,03/03/2026
-E11048,Vertex Holdings,10051918,Public Limited Company,SE,06/02/2012,Import/Export,1006105,BO1558,Low,N,02/10/2025
-E11049,Onyx Trading,10052362,Public Limited Company,US,24/08/2003,Precious Metals,1006170,BO1562,Low,N,10/12/2025
-E11050,Nova Global,10053091,Public Limited Company,DE,20/05/2006,Wholesale Trade,1006230,BO1565,Low,N,24/03/2026
-E11051,Titan Industries,10053541,Limited Liability Partnership,ES,16/03/2005,Manufacturing,1006269,BO1573,Low,N,25/08/2025
-E11052,Willow Global,10054452,Private Limited Company,FR,25/05/2009,Manufacturing,1006287,BO1581,Low,N,17/02/2026
-E11053,Nova Capital,10054698,Private Limited Company,IT,26/08/2016,Manufacturing,1006357,BO1588,Low,N,03/10/2025
-E11054,Beacon Group,10055269,Public Limited Company,SE,01/11/2017,Commodity Trading,1006381,BO1597,Low,N,08/02/2026
-E12000,Summit Consulting,10056023,Limited Liability Partnership,AU,09/11/2001,Shipping,1006464,BO1605,Low,N,25/09/2025
-E12001,Aurora Enterprises,10056183,Private Limited Company,SE,06/10/2020,Manufacturing,1006507,BO1613,Low,N,03/12/2025
-E12002,Halcyon Logistics,10056675,Public Limited Company,JP,02/05/2014,Real Estate,1006602,BO1617,Low,N,25/08/2025
-E12003,Sterling Ltd,10057135,Private Limited Company,GB,04/07/2003,Consulting Services,1006616,BO1626,Low,N,30/04/2026
-E12004,Pinnacle Consulting,10057606,Sole Trader,SY,06/04/1999,Wholesale Trade,1006681,BO1627,High,N,23/09/2025
-E12005,Harbour Logistics,10058198,Limited Liability Partnership,FR,16/05/2011,Real Estate,1006776,BO1629,High,N,20/01/2026
-E12006,Onyx Capital,10058882,Limited Liability Partnership,US,10/09/2008,Consulting Services,1006791,BO1631,Low,N,12/09/2025
-E12007,Orion Partners,10059229,Limited Liability Partnership,FR,24/07/2008,Manufacturing,1006803,BO1637,Low,N,16/07/2025
-E12008,Beacon Partners,10060076,Private Limited Company,SE,10/04/2004,Commodity Trading,1006830,BO1640,Low,N,24/06/2026
-E12009,Orion Consulting,10060759,Private Limited Company,ES,09/07/2013,Import/Export,1006862,BO1648,Low,N,09/02/2026
-E12010,Marlin Trading,10061126,Limited Liability Partnership,CH,11/02/2015,Commodity Trading,1006885,BO1653,Low,N,29/10/2025
-E12011,Pallas Consulting,10061509,Sole Trader,GB,02/11/2017,Consulting Services,1006925,BO1662,Low,N,06/10/2025
-E12012,Quill Holdings,10062378,Limited Liability Partnership,US,04/09/2007,Wholesale Trade,1006949,BO1664,Low,N,18/03/2026
-E12013,Verano Ventures,10062486,Limited Liability Partnership,FR,04/05/1999,Consulting Services,1006962,BO1673,Low,N,05/02/2026
-E12014,Willow Ventures,10062623,Limited Liability Partnership,GB,19/03/1998,Commodity Trading,1007024,BO1680,Low,N,04/01/2026
-E12015,Silverline Trading,10063537,Private Limited Company,JP,28/03/2017,Consulting Services,1007100,BO1683,Low,N,02/05/2026
-E12016,Cobalt Ltd,10064329,Public Limited Company,NL,08/02/1998,Wholesale Trade,1007119,BO1686,Low,N,09/06/2026
-E12017,Crest Capital,10065263,Limited Liability Partnership,US,23/01/2014,Shipping,1007174,BO1694,Low,N,11/10/2025
-E12018,Silverline Consulting,10065918,Public Limited Company,AU,22/09/1998,Financial Holdings,1007214,BO1701,Low,N,30/06/2026
-E12019,Cobalt Industries,10066625,Public Limited Company,US,02/11/2005,Precious Metals,1007235,BO1707,Low,N,02/07/2025
-E12020,Pallas Industries,10067176,Limited Liability Partnership,DE,12/12/2020,Financial Holdings,1007291,BO1713,Low,N,18/02/2026
-E12021,Silverline Logistics,10067380,Private Limited Company,GB,13/07/1995,Shipping,1007319,BO1721,Low,N,10/11/2025
-E12022,Regent Holdings,10067580,Limited Liability Partnership,CA,21/01/2009,Wholesale Trade,1007358,BO1727,Low,N,27/09/2025
-E12023,Orion Logistics,10068331,Sole Trader,FR,04/04/1997,Freight & Logistics,1007426,BO1731,Low,N,29/11/2025
-E12024,Harbour Global,10068774,Limited Liability Partnership,US,08/04/2017,Consulting Services,1007483,BO1736,Low,N,18/05/2026
-E12025,Cascade Enterprises,10068950,Limited Liability Partnership,FR,01/03/2004,Commodity Trading,1007524,BO1745,Low,N,19/12/2025
-E12026,Apex Industries,10069066,Limited Liability Partnership,NL,24/01/2003,Consulting Services,1007567,BO1752,Low,N,05/12/2025
-E12027,Nova Group,10069746,Private Limited Company,CH,17/12/2002,Manufacturing,1007596,BO1753,Low,N,07/07/2025
-E12028,Delta Ltd,10070599,Limited Liability Partnership,FR,22/12/2013,Manufacturing,1007624,BO1762,Low,N,08/08/2025
-E12029,Delta Trading,10070920,Sole Trader,ES,20/04/2004,Wholesale Trade,1007704,BO1765,Low,N,24/06/2026
-E12030,Meridian Industries,10071046,Sole Trader,CH,11/04/2005,Import/Export,1007733,BO1770,Low,N,28/07/2025
-E12031,Atlas Ventures,10071707,Public Limited Company,GB,04/03/2016,Financial Holdings,1007789,BO1777,Low,N,28/04/2026
-E12032,Onyx Enterprises,10072016,Public Limited Company,DE,15/10/2003,Commodity Trading,1007845,BO1780,Low,N,26/03/2026
-E12033,Halcyon Industries,10072365,Sole Trader,US,24/05/2007,Precious Metals,1007923,BO1784,Low,N,29/10/2025
-E12034,Apex Partners,10072585,Private Limited Company,SE,27/11/1995,Precious Metals,1007947,BO1786,Low,N,03/05/2026
-E12035,Delta Industries,10073066,Public Limited Company,FR,28/10/2019,Manufacturing,1007967,BO1790,Low,N,18/03/2026
-E12036,Pallas Trading,10073571,Private Limited Company,GB,01/06/2001,Precious Metals,1008015,BO1797,Low,N,21/11/2025
-E12037,Aurora Trading,10073860,Sole Trader,FR,21/06/2008,Wholesale Trade,1008099,BO1798,Low,N,14/01/2026
-E12038,Aurora Capital,10073968,Sole Trader,JP,03/03/1995,Real Estate,1008145,BO1802,Low,N,21/11/2025
-E12039,Silverline Capital,10074583,Public Limited Company,CH,23/02/2000,Shipping,1008180,BO1808,Low,N,02/11/2025
-E12040,Orion Ventures,10075283,Public Limited Company,IT,06/04/2018,Precious Metals,1008222,BO1811,Low,N,14/03/2026
-E12041,Meridian Global,10075994,Private Limited Company,SE,16/01/1998,Freight & Logistics,1008259,BO1813,Low,N,08/09/2025
-E12042,Granite Consulting,10076424,Sole Trader,SE,12/08/2002,Real Estate,1008316,BO1814,Low,N,03/01/2026
-E12043,Sterling Global,10077290,Limited Liability Partnership,NL,07/04/2010,Financial Holdings,1008368,BO1821,Low,N,27/11/2025
-E12044,Halcyon Partners,10077604,Limited Liability Partnership,FR,16/12/2011,Shipping,1008397,BO1830,Low,N,17/09/2025
-E12045,Titan Holdings,10078227,Limited Liability Partnership,IT,04/09/2005,Shipping,1008490,BO1837,Low,N,13/02/2026
-E12046,Apex Global,10078627,Public Limited Company,JP,06/02/2006,Manufacturing,1008506,BO1843,Low,N,20/05/2026
-E12047,Pallas Group,10078945,Sole Trader,NL,06/03/2013,Financial Holdings,1008559,BO1850,Low,N,15/03/2026
-E12048,Meridian Consulting,10079866,Private Limited Company,AU,23/11/2005,Freight & Logistics,1008622,BO1852,Low,N,24/06/2026
-E12049,Northgate Partners,10080478,Sole Trader,JP,14/03/2005,Precious Metals,1008648,BO1857,Low,N,11/08/2025
-E12050,Zephyr Ventures,10081285,Sole Trader,CH,03/04/2018,Commodity Trading,1008681,BO1859,Low,N,18/08/2025
-E12051,Willow Trading,10081498,Public Limited Company,JP,22/05/2006,Financial Holdings,1008769,BO1861,Low,N,20/03/2026
-E12052,Cascade Ltd,10082428,Private Limited Company,US,19/03/2006,Precious Metals,1008793,BO1866,Low,N,24/04/2026
-E12053,Verano Holdings,10083345,Sole Trader,JP,10/04/2017,Wholesale Trade,1008862,BO1867,Low,N,15/10/2025
-E12054,Meridian Ltd,10084000,Limited Liability Partnership,IE,27/04/2002,Manufacturing,1008931,BO1871,Low,N,08/10/2025
-E13000,Cascade Industries,10084733,Limited Liability Partnership,SE,05/11/1997,Shipping,1008964,BO1880,Low,N,04/06/2026
-E13001,Pinnacle Partners,10085126,Limited Liability Partnership,SE,02/02/2006,Wholesale Trade,1009048,BO1882,Medium,N,20/12/2025
-E13002,Summit Ltd,10085569,Sole Trader,DE,07/04/1998,Wholesale Trade,1009103,BO1888,Medium,N,09/06/2026
-E13003,Apex Logistics,10086020,Public Limited Company,DE,07/10/1996,Import/Export,1009189,BO1889,Medium,N,10/05/2026
-E13004,Crest Partners,10086362,Public Limited Company,GB,24/06/2017,Financial Holdings,1009245,BO1895,Medium,N,03/10/2025
-E13005,Cobalt Trading,10086683,Private Limited Company,US,23/04/2003,Freight & Logistics,1009326,BO1903,Medium,N,11/07/2025
-E13006,Beacon Ltd,10087519,Sole Trader,SE,08/06/2019,Precious Metals,1009376,BO1910,Low,N,16/07/2025
-E13007,Northgate Trading,10087868,Limited Liability Partnership,GB,25/11/1995,Wholesale Trade,1009400,BO1919,Low,N,22/05/2026
-E13008,Vertex Capital,10088088,Public Limited Company,CH,05/04/2002,Consulting Services,1009438,BO1922,Low,N,30/04/2026
-E13009,Granite Partners,10088616,Public Limited Company,DE,20/10/2020,Freight & Logistics,1009489,BO1924,Low,N,22/06/2026
-E13010,Orion Group,10088818,Limited Liability Partnership,GB,28/07/2013,Consulting Services,1009505,BO1931,Low,N,08/01/2026
-E13011,Beacon Industries,10088947,Public Limited Company,CH,19/09/1995,Precious Metals,1009565,BO1932,Low,N,17/03/2026
-E13012,Verano Trading,10089096,Public Limited Company,US,06/07/2005,Freight & Logistics,1009601,BO1934,Low,N,07/10/2025
-E13013,Quill Global,10089406,Private Limited Company,GB,23/11/2014,Manufacturing,1009645,BO1935,Low,N,13/09/2025
-E13014,Marlin Ventures,10089839,Limited Liability Partnership,CA,05/10/2005,Freight & Logistics,1009697,BO1940,Low,N,21/06/2026
-E13015,Willow Enterprises,10090019,Public Limited Company,SE,03/05/2010,Real Estate,1009776,BO1949,Low,N,23/04/2026
-E13016,Titan Consulting,10090801,Public Limited Company,DE,23/11/2004,Import/Export,1009842,BO1951,Low,N,26/05/2026
-E13017,Regent Global,10090984,Sole Trader,CH,20/06/1997,Consulting Services,1009868,BO1960,Low,N,10/07/2025
-E13018,Regent Ventures,10091600,Limited Liability Partnership,US,01/02/2019,Shipping,1009913,BO1969,Low,N,01/10/2025
-E13019,Atlas Capital,10091866,Sole Trader,CH,27/11/2000,Financial Holdings,1009999,BO1977,Low,N,29/08/2025
-E13020,Cobalt Partners,10092470,Public Limited Company,CH,24/03/2005,Shipping,1010012,BO1980,Low,N,11/09/2025
-E13021,Harbour Enterprises,10093091,Limited Liability Partnership,FR,21/06/2017,Shipping,1010023,BO1987,Low,N,05/10/2025
-E13022,Pallas Ventures,10094008,Private Limited Company,IT,20/06/2020,Import/Export,1010099,BO1992,Low,N,16/05/2026
-E13023,Granite Ltd,10094800,Private Limited Company,CH,05/12/2007,Wholesale Trade,1010123,BO2001,Low,N,13/12/2025
-E13024,Vertex Trading,10095146,Sole Trader,DE,05/07/2000,Financial Holdings,1010182,BO2009,Low,N,14/02/2026
-E13025,Cobalt Global,10095602,Limited Liability Partnership,JP,28/08/2019,Consulting Services,1010238,BO2015,Low,N,26/01/2026
-E13026,Pinnacle Holdings,10095798,Public Limited Company,CH,18/02/2008,Wholesale Trade,1010321,BO2019,Low,N,30/06/2026
-E13027,Marlin Consulting,10096701,Limited Liability Partnership,SE,21/10/2020,Shipping,1010344,BO2025,Low,N,15/01/2026
-E13028,Pallas Enterprises,10097335,Private Limited Company,CA,24/12/1996,Real Estate,1010412,BO2030,Low,N,08/06/2026
-E13029,Summit Enterprises,10097620,Private Limited Company,JP,13/02/1999,Financial Holdings,1010501,BO2032,Low,N,25/02/2026
-E13030,Vertex Ltd,10098392,Sole Trader,CH,13/12/1995,Precious Metals,1010539,BO2041,Low,N,22/01/2026
-E13031,Atlas Group,10098629,Sole Trader,ES,14/01/1996,Shipping,1010583,BO2046,Low,N,12/01/2026
-E13032,Northgate Consulting,10099186,Private Limited Company,GB,24/02/1999,Import/Export,1010636,BO2055,Low,N,09/11/2025
-E13033,Regent Partners,10099652,Sole Trader,FR,27/11/2000,Freight & Logistics,1010655,BO2056,Low,N,21/01/2026
-E13034,Pinnacle Global,10100450,Sole Trader,CH,27/12/2017,Precious Metals,1010713,BO2061,Low,N,14/03/2026
-E13035,Pinnacle Logistics,10100739,Private Limited Company,DE,28/09/2019,Precious Metals,1010778,BO2063,Low,N,25/05/2026
-E13036,Willow Industries,10101655,Private Limited Company,AU,14/12/2006,Consulting Services,1010825,BO2065,Low,N,28/12/2025
-E13037,Zephyr Enterprises,10102013,Public Limited Company,CA,23/03/2008,Shipping,1010848,BO2067,Low,N,03/11/2025
-E13038,Nova Ltd,10102412,Private Limited Company,AU,05/05/2011,Freight & Logistics,1010929,BO2071,Low,N,12/08/2025
-E13039,Meridian Partners,10102586,Limited Liability Partnership,IE,19/02/2003,Financial Holdings,1011004,BO2074,Low,N,10/11/2025
-E13040,Halcyon Enterprises,10103260,Sole Trader,DE,22/01/2000,Real Estate,1011060,BO2077,Low,N,30/08/2025
-E13041,Beacon Enterprises,10103929,Public Limited Company,SE,26/07/2005,Wholesale Trade,1011072,BO2084,Low,N,03/03/2026
-E13042,Marlin Group,10104257,Sole Trader,JP,28/09/2005,Manufacturing,1011132,BO2092,Low,N,15/06/2026
-E13043,Crest Ventures,10104515,Sole Trader,GB,22/07/2011,Freight & Logistics,1011228,BO2093,Low,N,29/07/2025
-E13044,Ironclad Ltd,10104799,Limited Liability Partnership,FR,26/06/2010,Freight & Logistics,1011295,BO2100,Low,N,02/10/2025
-E13045,Northgate Ltd,10105194,Limited Liability Partnership,ES,13/02/2019,Financial Holdings,1011314,BO2102,Low,N,21/05/2026
-E13046,Granite Holdings,10105836,Private Limited Company,ES,03/05/2006,Shipping,1011331,BO2111,Low,N,19/11/2025
-E13047,Ironclad Group,10106571,Sole Trader,FR,14/06/1996,Real Estate,1011404,BO2113,Low,N,01/08/2025
-E13048,Verano Consulting,10106678,Limited Liability Partnership,AU,12/12/1996,Precious Metals,1011454,BO2115,Low,N,18/04/2026
-E13049,Harbour Industries,10107174,Public Limited Company,ES,18/06/2010,Manufacturing,1011487,BO2117,Low,N,04/10/2025
-E13050,Pinnacle Ltd,10107440,Limited Liability Partnership,ES,05/09/1995,Freight & Logistics,1011508,BO2123,Low,N,26/10/2025
-E13051,Northgate Global,10108110,Private Limited Company,NL,19/01/2019,Financial Holdings,1011552,BO2126,Low,N,25/01/2026
-E13052,Pallas Global,10108641,Private Limited Company,NL,13/07/2000,Import/Export,1011582,BO2128,Low,N,15/10/2025
-E13053,Delta Capital,10109245,Public Limited Company,IE,25/05/1999,Manufacturing,1011608,BO2137,Low,N,11/03/2026
-E13054,Willow Consulting,10109383,Sole Trader,NL,10/02/1995,Freight & Logistics,1011694,BO2138,Low,N,27/09/2025
-E14000,Cascade Logistics,10109623,Public Limited Company,GB,08/12/2005,Wholesale Trade,1011734,BO2139,Low,N,24/08/2025
-E14001,Sterling Ventures,10110055,Private Limited Company,KY,22/01/2025,Financial Holdings,1011805,BO90019,High,N,17/06/2026
-E14002,Pinnacle Enterprises,10110435,Private Limited Company,PA,15/03/2025,Financial Holdings,1011848,BO90019,High,N,04/01/2026
-E14003,Quill Industries,10111031,Private Limited Company,PA,09/04/2024,Financial Holdings,1011928,BO90019,High,N,03/04/2026
-E14004,Silverline Ventures,10111580,Private Limited Company,PA,17/01/2023,Financial Holdings,1011950,BO90019,High,N,16/06/2026
-E14005,Northgate Holdings,10112278,Limited Liability Partnership,FR,22/04/1995,Precious Metals,1012008,BO2164,Low,N,19/03/2026
-E14006,Onyx Ltd,10113038,Public Limited Company,GB,08/03/2009,Real Estate,1012054,BO2169,Low,N,17/08/2025
-E14007,Beacon Capital,10113568,Public Limited Company,JP,26/09/2015,Import/Export,1012111,BO2171,Low,N,22/08/2025
-E14008,Cobalt Capital,10113814,Sole Trader,SE,16/10/2003,Manufacturing,1012177,BO2176,Low,N,07/04/2026
-E14009,Titan Ltd,10114323,Sole Trader,CH,08/06/1998,Shipping,1012251,BO2181,Low,N,20/08/2025
-E14010,Regent Trading,10114577,Private Limited Company,DE,17/06/2000,Manufacturing,1012335,BO2189,Low,N,27/12/2025
-E14011,Willow Partners,10115511,Sole Trader,FR,08/02/1995,Real Estate,1012366,BO2195,Low,N,26/02/2026
-E14012,Atlas Logistics,10115988,Private Limited Company,NL,02/07/2009,Freight & Logistics,1012451,BO2203,Low,N,16/09/2025
-E14013,Nova Logistics,10116251,Public Limited Company,US,16/03/2005,Manufacturing,1012509,BO2212,Low,N,13/09/2025
-E14014,Zephyr Logistics,10117099,Public Limited Company,IT,27/07/2004,Import/Export,1012574,BO2221,Low,N,08/05/2026
-E14015,Summit Trading,10117388,Limited Liability Partnership,GB,20/10/2007,Commodity Trading,1012653,BO2226,Low,N,05/03/2026
-E14016,Apex Trading,10118105,Limited Liability Partnership,JP,14/01/2020,Shipping,1012670,BO2229,Low,N,28/11/2025
-E14017,Apex Ventures,10118856,Private Limited Company,GB,15/02/1997,Import/Export,1012707,BO2233,Low,N,12/02/2026
-E14018,Verano Industries,10119104,Sole Trader,GB,13/07/1997,Real Estate,1012799,BO2240,Low,N,23/02/2026
-E14019,Apex Group,10119680,Sole Trader,JP,09/06/2020,Commodity Trading,1012817,BO2242,Low,N,18/01/2026
-E14020,Delta Group,10120353,Private Limited Company,JP,08/10/2000,Wholesale Trade,1012891,BO2249,Low,N,27/12/2025
-E14021,Delta Global,10120800,Sole Trader,CA,26/05/2018,Financial Holdings,1012914,BO2257,Low,N,23/06/2026
-E14022,Willow Logistics,10121021,Limited Liability Partnership,FR,03/09/2016,Financial Holdings,1012982,BO2262,Low,N,15/08/2025
-E14023,Delta Partners,10121587,Private Limited Company,SE,02/10/1996,Real Estate,1013056,BO2269,Low,N,21/02/2026
-E14024,Cobalt Consulting,10122482,Private Limited Company,FR,15/03/2002,Shipping,1013116,BO2278,Low,N,22/04/2026
-E14025,Granite Logistics,10123324,Private Limited Company,AU,26/11/1996,Import/Export,1013128,BO2282,Low,N,14/02/2026
-E14026,Silverline Partners,10123811,Private Limited Company,IE,08/08/2007,Shipping,1013181,BO2286,Low,N,29/09/2025
-E14027,Sterling Holdings,10124124,Private Limited Company,ES,06/05/2015,Commodity Trading,1013272,BO2293,Low,N,25/07/2025
-E14028,Aurora Consulting,10124403,Public Limited Company,AU,04/01/2009,Commodity Trading,1013331,BO2299,Low,N,01/09/2025
-E14029,Aurora Holdings,10124902,Limited Liability Partnership,AU,01/11/2003,Freight & Logistics,1013370,BO2302,Low,N,08/12/2025
-E14030,Granite Enterprises,10125235,Private Limited Company,IT,16/08/2018,Manufacturing,1013404,BO2304,Low,N,04/05/2026
-E14031,Crest Ltd,10125498,Private Limited Company,GB,19/09/2001,Consulting Services,1013500,BO2307,Low,N,09/02/2026
-E14032,Meridian Capital,10126085,Limited Liability Partnership,US,09/12/2015,Real Estate,1013520,BO2314,Low,N,11/05/2026
-E14033,Cascade Ventures,10127022,Sole Trader,GB,26/11/2015,Consulting Services,1013552,BO2320,Low,N,12/04/2026
-E14034,Zephyr Partners,10127583,Limited Liability Partnership,DE,07/12/2010,Shipping,1013623,BO2325,Low,N,14/09/2025
-E14035,Crest Group,10127932,Limited Liability Partnership,GB,13/05/2011,Real Estate,1013702,BO2332,Low,N,17/09/2025
-E14036,Summit Industries,10128877,Public Limited Company,FR,10/01/2017,Wholesale Trade,1013735,BO2333,Low,N,13/08/2025
-E14037,Onyx Global,10129337,Limited Liability Partnership,ES,03/12/2012,Freight & Logistics,1013795,BO2338,Low,N,01/07/2026
-E14038,Onyx Group,10130240,Public Limited Company,AU,11/05/2006,Precious Metals,1013823,BO2344,Low,N,03/05/2026
-E14039,Onyx Logistics,10130852,Limited Liability Partnership,ES,12/07/2007,Precious Metals,1013838,BO2351,Low,N,21/06/2026
-E14040,Orion Ltd,10131404,Private Limited Company,GB,25/12/2020,Consulting Services,1013927,BO2353,Low,N,03/09/2025
-E14041,Atlas Global,10131869,Sole Trader,SE,01/12/2005,Freight & Logistics,1013964,BO2361,Low,N,22/04/2026
-E14042,Ironclad Industries,10132211,Private Limited Company,SE,15/11/2004,Manufacturing,1014023,BO2366,Low,N,01/09/2025
-E14043,Delta Holdings,10133026,Private Limited Company,ES,01/03/2016,Import/Export,1014056,BO2374,Low,N,17/09/2025
-E14044,Atlas Enterprises,10133513,Public Limited Company,CA,07/01/2012,Wholesale Trade,1014088,BO2378,Low,N,22/07/2025
-E14045,Beacon Ventures,10133752,Public Limited Company,NL,05/02/2004,Freight & Logistics,1014125,BO2382,Low,N,24/06/2026
-E14046,Meridian Holdings,10133954,Public Limited Company,ES,13/06/2004,Financial Holdings,1014188,BO2385,Low,N,27/12/2025
-E14047,Verano Capital,10134597,Private Limited Company,CH,28/07/2016,Wholesale Trade,1014268,BO2392,Low,N,15/04/2026
-E14048,Sterling Enterprises,10134974,Public Limited Company,NL,14/11/2009,Precious Metals,1014358,BO2397,Low,N,13/04/2026
-E14049,Ironclad Ventures,10135366,Limited Liability Partnership,SE,15/10/2018,Commodity Trading,1014412,BO2401,Low,N,04/03/2026
-E14050,Northgate Capital,10136169,Public Limited Company,CH,26/05/2014,Manufacturing,1014509,BO2403,Low,N,25/11/2025
-E14051,Pallas Ltd,10136862,Public Limited Company,ES,04/04/2019,Import/Export,1014602,BO2404,Low,N,26/02/2026
-E14052,Verano Enterprises,10137726,Limited Liability Partnership,CA,25/01/2016,Commodity Trading,1014662,BO2407,Low,N,04/06/2026
-E14053,Cascade Partners,10138196,Public Limited Company,CA,07/12/2000,Financial Holdings,1014680,BO2410,Low,N,13/03/2026
-E14054,Atlas Ltd,10138798,Private Limited Company,ES,17/03/2000,Shipping,1014692,BO2419,Low,N,03/12/2025
+E00637,Kingfisher Retail Group,10002219,Public Limited Company,GB,06/03/2004,Retail Trade,1000315,BO1030,Medium,N,09/09/2025
+E10000,Aurora Industries,10002329,Private Limited Company,GB,12/09/2013,Commodity Trading,1000335,BO1039,Low,N,13/04/2026
+E10001,Regent Ltd,10002681,Private Limited Company,AE,27/06/1997,Consulting Services,1000418,BO1047,High,N,15/01/2026
+E10002,Orion Partners,10003006,Public Limited Company,VG,16/12/1997,Commodity Trading,1000474,BO1051,High,N,21/07/2025
+E10003,Ironclad Global,10003399,Public Limited Company,IR,13/09/2009,Shipping,1000520,BO1058,High,N,17/06/2026
+E10004,Onyx Holdings,10004094,Public Limited Company,VG,10/01/1995,Consulting Services,1000577,BO1063,High,N,14/10/2025
+E10005,Regent Partners,10004516,Private Limited Company,PA,13/02/2012,Shipping,1000662,BO1072,High,N,21/04/2026
+E10006,Meridian Ltd,10005054,Public Limited Company,KY,05/04/2020,Shipping,1000710,BO1077,High,N,29/08/2025
+E10007,Harbour Ltd,10005835,Sole Trader,FR,24/07/2005,Manufacturing,1000740,BO1086,Low,N,20/12/2025
+E10008,Verano Partners,10006274,Private Limited Company,ES,15/12/2006,Freight & Logistics,1000836,BO1094,Low,N,03/12/2025
+E10009,Orion Ltd,10006826,Public Limited Company,IE,08/05/2008,Consulting Services,1000871,BO1098,Low,N,05/10/2025
+E10010,Regent Logistics,10007540,Sole Trader,NL,25/12/2000,Wholesale Trade,1000967,BO1099,Low,N,20/08/2025
+E10011,Verano Holdings,10007670,Public Limited Company,CH,06/08/2002,Consulting Services,1001026,BO1100,Low,N,24/09/2025
+E10012,Quill Enterprises,10008213,Limited Liability Partnership,AU,02/09/1995,Precious Metals,1001119,BO1104,Low,N,13/08/2025
+E10013,Aurora Consulting,10009023,Sole Trader,DE,08/12/2012,Real Estate,1001140,BO1112,Low,N,07/10/2025
+E10014,Ironclad Group,10009581,Public Limited Company,CH,15/10/2005,Manufacturing,1001160,BO1120,Low,N,15/07/2025
+E10015,Northgate Consulting,10010231,Public Limited Company,IT,22/05/2002,Commodity Trading,1001175,BO1129,Low,N,03/05/2026
+E10016,Orion Ventures,10010996,Private Limited Company,CH,06/12/2013,Import/Export,1001260,BO1131,Low,N,13/08/2025
+E10017,Silverline Holdings,10011620,Limited Liability Partnership,SE,12/10/2001,Shipping,1001314,BO1132,Low,N,11/06/2026
+E10018,Zephyr Industries,10011726,Limited Liability Partnership,AU,26/09/2001,Precious Metals,1001407,BO1133,Low,N,24/10/2025
+E10019,Nova Consulting,10011926,Public Limited Company,NL,10/09/1996,Consulting Services,1001451,BO1138,Low,N,09/08/2025
+E10020,Aurora Ventures,10012602,Private Limited Company,FR,05/03/2019,Commodity Trading,1001464,BO1145,Low,N,30/07/2025
+E10021,Ironclad Logistics,10012795,Limited Liability Partnership,CA,26/03/1996,Freight & Logistics,1001522,BO1149,Low,N,01/07/2025
+E10022,Cascade Trading,10013307,Private Limited Company,NL,07/03/1995,Freight & Logistics,1001535,BO1155,Low,N,22/10/2025
+E10023,Ironclad Consulting,10013664,Sole Trader,SE,12/04/2001,Commodity Trading,1001598,BO1163,Low,N,09/12/2025
+E10024,Atlas Holdings,10014090,Limited Liability Partnership,IE,22/05/2002,Precious Metals,1001626,BO1169,Low,N,30/05/2026
+E10025,Marlin Holdings,10014312,Private Limited Company,FR,13/01/2015,Commodity Trading,1001672,BO1172,Low,N,14/09/2025
+E10026,Halcyon Holdings,10014731,Limited Liability Partnership,CA,13/03/1998,Consulting Services,1001719,BO1176,Low,N,22/03/2026
+E10027,Ironclad Partners,10014967,Private Limited Company,AU,06/05/1995,Shipping,1001745,BO1178,Low,N,02/01/2026
+E10028,Nova Enterprises,10015101,Limited Liability Partnership,US,17/12/2015,Freight & Logistics,1001779,BO1184,Low,N,29/04/2026
+E10029,Pinnacle Trading,10015290,Limited Liability Partnership,JP,02/01/2018,Import/Export,1001818,BO1188,Low,N,22/03/2026
+E10030,Ironclad Enterprises,10016141,Limited Liability Partnership,US,16/04/2002,Wholesale Trade,1001905,BO1189,Low,N,14/12/2025
+E10031,Apex Ltd,10017004,Public Limited Company,US,24/10/2002,Precious Metals,1001979,BO1193,Low,N,15/02/2026
+E10032,Regent Trading,10017931,Public Limited Company,AU,20/09/2009,Financial Holdings,1002045,BO1200,Low,N,14/03/2026
+E10033,Willow Ventures,10018475,Limited Liability Partnership,ES,19/09/2020,Financial Holdings,1002127,BO1201,Low,N,07/05/2026
+E10034,Onyx Logistics,10019320,Private Limited Company,GB,09/06/2017,Wholesale Trade,1002187,BO1207,Low,N,16/05/2026
+E10035,Crest Partners,10020036,Public Limited Company,SE,21/10/1996,Import/Export,1002262,BO1208,Low,N,30/08/2025
+E10036,Atlas Capital,10020887,Limited Liability Partnership,DE,21/06/2019,Consulting Services,1002359,BO1216,Low,N,29/10/2025
+E10037,Harbour Partners,10021239,Limited Liability Partnership,NL,10/11/2015,Freight & Logistics,1002411,BO1220,Low,N,03/08/2025
+E10038,Marlin Ltd,10021382,Sole Trader,FR,09/06/2009,Shipping,1002431,BO1229,Low,N,18/02/2026
+E10039,Quill Logistics,10021755,Sole Trader,IT,06/05/2010,Consulting Services,1002468,BO1234,Low,N,24/07/2025
+E10040,Crest Logistics,10022202,Public Limited Company,ES,05/04/2005,Shipping,1002541,BO1236,Low,N,12/07/2025
+E10041,Beacon Consulting,10022694,Sole Trader,CH,15/09/2008,Wholesale Trade,1002634,BO1245,Low,N,28/11/2025
+E10042,Ironclad Capital,10023012,Limited Liability Partnership,DE,13/06/2009,Wholesale Trade,1002661,BO1252,Low,N,25/02/2026
+E10043,Sterling Ltd,10023709,Public Limited Company,AU,07/06/2004,Manufacturing,1002751,BO1255,Low,N,29/05/2026
+E10044,Willow Group,10024041,Sole Trader,NL,16/08/2005,Manufacturing,1002848,BO1264,Low,N,02/01/2026
+E10045,Apex Holdings,10024882,Limited Liability Partnership,SE,02/09/2008,Wholesale Trade,1002867,BO1265,Low,N,11/02/2026
+E10046,Granite Holdings,10025311,Public Limited Company,AU,19/03/1996,Shipping,1002943,BO1268,Low,N,19/09/2025
+E10047,Northgate Enterprises,10025686,Public Limited Company,ES,06/02/2008,Consulting Services,1003028,BO1272,Low,N,25/04/2026
+E10048,Crest Consulting,10025992,Public Limited Company,CH,08/01/1996,Commodity Trading,1003044,BO1275,Low,N,15/02/2026
+E10049,Silverline Ventures,10026641,Private Limited Company,IT,08/12/2013,Real Estate,1003113,BO1278,Low,N,11/12/2025
+E10050,Cobalt Consulting,10027092,Limited Liability Partnership,NL,09/11/2002,Real Estate,1003168,BO1284,Low,N,15/07/2025
+E10051,Summit Capital,10027220,Public Limited Company,DE,02/03/2007,Commodity Trading,1003190,BO1291,Low,N,24/11/2025
+E10052,Aurora Global,10027640,Limited Liability Partnership,US,20/07/2017,Shipping,1003236,BO1299,Low,N,02/01/2026
+E10053,Summit Enterprises,10028145,Sole Trader,AU,14/02/2000,Freight & Logistics,1003322,BO1303,Low,N,21/03/2026
+E10054,Regent Capital,10028315,Public Limited Company,JP,25/10/2008,Wholesale Trade,1003419,BO1306,Low,N,20/08/2025
+E11000,Crest Global,10028566,Private Limited Company,FR,19/08/2012,Commodity Trading,1003480,BO1311,Low,N,11/02/2026
+E11001,Regent Industries,10029395,Sole Trader,DE,21/10/2009,Wholesale Trade,1003559,BO1318,Low,N,10/03/2026
+E11002,Meridian Enterprises,10030182,Limited Liability Partnership,DE,27/06/2013,Manufacturing,1003619,BO1321,Low,N,25/11/2025
+E11003,Quill Consulting,10030872,Public Limited Company,GB,06/02/2006,Freight & Logistics,1003639,BO1329,Low,N,14/04/2026
+E11004,Vertex Partners,10031062,Sole Trader,AU,12/02/2006,Consulting Services,1003728,BO1335,Low,N,10/09/2025
+E11005,Quill Group,10031669,Public Limited Company,US,28/11/2004,Wholesale Trade,1003806,BO1340,Low,N,23/01/2026
+E11006,Halcyon Ltd,10031837,Public Limited Company,NL,06/05/2008,Financial Holdings,1003866,BO1342,Low,N,27/04/2026
+E11007,Sterling Partners,10032124,Private Limited Company,DE,27/09/2017,Real Estate,1003928,BO1351,Low,N,24/12/2025
+E11008,Silverline Global,10033024,Public Limited Company,FR,22/07/2007,Wholesale Trade,1004025,BO1353,Low,N,26/09/2025
+E11009,Silverline Group,10033262,Public Limited Company,ES,12/01/2020,Wholesale Trade,1004116,BO1355,Low,N,24/04/2026
+E11010,Pallas Ventures,10033964,Public Limited Company,DE,19/01/2002,Shipping,1004161,BO1361,Low,N,22/03/2026
+E11011,Aurora Partners,10034124,Limited Liability Partnership,JP,10/02/2007,Wholesale Trade,1004250,BO1368,Low,N,05/09/2025
+E11012,Granite Ventures,10034271,Limited Liability Partnership,NL,23/12/1996,Import/Export,1004299,BO1375,Low,N,04/03/2026
+E11013,Onyx Partners,10034552,Public Limited Company,CA,20/10/2009,Import/Export,1004316,BO1381,Low,N,24/10/2025
+E11014,Delta Enterprises,10034715,Private Limited Company,NL,19/06/2018,Consulting Services,1004385,BO1389,Low,N,16/02/2026
+E11015,Atlas Partners,10035586,Limited Liability Partnership,NL,08/06/2002,Consulting Services,1004423,BO1398,Low,N,24/02/2026
+E11016,Titan Global,10035804,Limited Liability Partnership,CH,25/05/2018,Shipping,1004520,BO1404,Low,N,11/05/2026
+E11017,Cobalt Ventures,10036650,Private Limited Company,IE,20/07/2015,Shipping,1004613,BO1412,Low,N,05/08/2025
+E11018,Nova Trading,10036776,Sole Trader,GB,03/03/2012,Freight & Logistics,1004671,BO1418,Low,N,17/11/2025
+E11019,Willow Ltd,10037687,Private Limited Company,CH,12/10/1998,Shipping,1004737,BO1427,Low,N,13/12/2025
+E11020,Quill Trading,10038007,Sole Trader,ES,27/11/1999,Shipping,1004765,BO1435,Low,N,19/06/2026
+E11021,Cobalt Holdings,10038411,Public Limited Company,CA,18/07/2002,Wholesale Trade,1004803,BO1439,Low,N,08/09/2025
+E11022,Silverline Industries,10039002,Private Limited Company,IE,08/07/2019,Real Estate,1004825,BO1447,Low,N,12/08/2025
+E11023,Sterling Trading,10039531,Public Limited Company,ES,18/02/2011,Financial Holdings,1004906,BO1450,Low,N,28/04/2026
+E11024,Vertex Industries,10039698,Sole Trader,IE,07/03/2015,Financial Holdings,1004935,BO1457,Low,N,26/04/2026
+E11025,Quill Ltd,10040177,Limited Liability Partnership,IE,01/08/2010,Manufacturing,1004953,BO1458,Low,N,28/06/2026
+E11026,Granite Industries,10040315,Limited Liability Partnership,FR,26/05/2014,Freight & Logistics,1005037,BO1459,Low,N,02/04/2026
+E11027,Cascade Industries,10040985,Private Limited Company,AU,18/02/2001,Real Estate,1005064,BO1468,Low,N,26/09/2025
+E11028,Vertex Ventures,10041849,Private Limited Company,IT,01/07/2000,Commodity Trading,1005089,BO1471,Low,N,31/08/2025
+E11029,Zephyr Ventures,10042090,Private Limited Company,ES,04/09/1997,Import/Export,1005141,BO1474,Low,N,10/10/2025
+E11030,Beacon Global,10042753,Sole Trader,US,02/11/2005,Precious Metals,1005238,BO1477,Low,N,16/08/2025
+E11031,Summit Trading,10043447,Public Limited Company,CA,20/04/2015,Manufacturing,1005312,BO1485,Low,N,30/01/2026
+E11032,Meridian Partners,10043705,Private Limited Company,IE,17/11/2004,Freight & Logistics,1005384,BO1494,Low,N,21/01/2026
+E11033,Zephyr Trading,10044337,Sole Trader,ES,05/12/2017,Precious Metals,1005450,BO1498,Low,N,24/10/2025
+E11034,Vertex Enterprises,10045262,Public Limited Company,SE,01/11/2000,Consulting Services,1005546,BO1499,Low,N,28/03/2026
+E11035,Aurora Group,10045401,Limited Liability Partnership,AU,15/12/2009,Manufacturing,1005579,BO1507,Low,N,27/03/2026
+E11036,Delta Consulting,10045956,Limited Liability Partnership,GB,04/11/1998,Precious Metals,1005625,BO1511,Low,N,27/08/2025
+E11037,Atlas Group,10046691,Public Limited Company,US,22/02/2002,Manufacturing,1005636,BO1518,Low,N,01/07/2025
+E11038,Orion Enterprises,10047356,Private Limited Company,US,11/02/2000,Wholesale Trade,1005670,BO1526,Low,N,15/11/2025
+E11039,Orion Industries,10047589,Public Limited Company,IE,04/04/2002,Shipping,1005718,BO1534,Low,N,12/08/2025
+E11040,Sterling Capital,10048412,Private Limited Company,US,13/06/1996,Freight & Logistics,1005796,BO1543,Low,N,29/08/2025
+E11041,Pallas Group,10048698,Sole Trader,IT,08/10/2005,Financial Holdings,1005815,BO1550,Low,N,13/05/2026
+E11042,Quill Capital,10049435,Private Limited Company,IT,16/06/2009,Manufacturing,1005829,BO1551,Low,N,24/02/2026
+E11043,Granite Group,10050225,Public Limited Company,FR,17/07/2004,Shipping,1005842,BO1557,Low,N,22/06/2026
+E11044,Marlin Industries,10050919,Limited Liability Partnership,GB,17/06/2019,Precious Metals,1005919,BO1562,Low,N,02/08/2025
+E11045,Verano Ltd,10051788,Limited Liability Partnership,ES,11/06/1998,Freight & Logistics,1005947,BO1566,Low,N,11/06/2026
+E11046,Halcyon Ventures,10052600,Limited Liability Partnership,CH,25/10/2001,Wholesale Trade,1005973,BO1570,Low,N,27/08/2025
+E11047,Aurora Ltd,10052983,Limited Liability Partnership,NL,14/06/2001,Import/Export,1006012,BO1573,Low,N,03/03/2026
+E11048,Vertex Holdings,10053208,Public Limited Company,SE,06/02/2012,Import/Export,1006096,BO1580,Low,N,02/10/2025
+E11049,Onyx Trading,10053652,Public Limited Company,US,24/08/2003,Precious Metals,1006161,BO1584,Low,N,10/12/2025
+E11050,Nova Global,10054381,Public Limited Company,DE,20/05/2006,Wholesale Trade,1006221,BO1587,Low,N,24/03/2026
+E11051,Titan Industries,10054831,Limited Liability Partnership,ES,16/03/2005,Manufacturing,1006260,BO1595,Low,N,25/08/2025
+E11052,Willow Global,10055742,Private Limited Company,FR,25/05/2009,Manufacturing,1006278,BO1603,Low,N,17/02/2026
+E11053,Nova Capital,10055988,Private Limited Company,IT,26/08/2016,Manufacturing,1006348,BO1610,Low,N,03/10/2025
+E11054,Beacon Group,10056559,Public Limited Company,SE,01/11/2017,Commodity Trading,1006372,BO1619,Low,N,08/02/2026
+E12000,Cobalt Global,10056883,Sole Trader,NL,16/09/2001,Precious Metals,1006388,BO1622,Low,N,29/09/2025
+E12001,Nova Partners,10057733,Private Limited Company,NL,28/05/1998,Real Estate,1006422,BO1623,Low,N,16/02/2026
+E12002,Delta Trading,10058346,Limited Liability Partnership,IE,03/03/1999,Manufacturing,1006478,BO1625,Low,N,19/03/2026
+E12003,Summit Ventures,10058537,Private Limited Company,CH,14/02/2007,Consulting Services,1006511,BO1629,Low,N,01/12/2025
+E12004,Marlin Trading,10059190,Public Limited Company,RU,11/09/2010,Manufacturing,1006540,BO1632,High,N,04/06/2026
+E12005,Atlas Ltd,10059348,Limited Liability Partnership,IE,15/12/2007,Consulting Services,1006566,BO1639,High,N,18/03/2026
+E12006,Onyx Group,10059852,Public Limited Company,IT,05/06/2001,Shipping,1006592,BO1644,Low,N,11/12/2025
+E12007,Cascade Global,10060666,Limited Liability Partnership,GB,12/10/2013,Consulting Services,1006617,BO1653,Low,N,31/05/2026
+E12008,Zephyr Consulting,10061422,Sole Trader,US,01/01/2013,Precious Metals,1006631,BO1656,Low,N,27/11/2025
+E12009,Pinnacle Ventures,10062186,Public Limited Company,IT,08/05/2018,Freight & Logistics,1006690,BO1659,Low,N,01/03/2026
+E12010,Regent Global,10062740,Sole Trader,AU,13/12/2008,Precious Metals,1006708,BO1666,Low,N,28/02/2026
+E12011,Granite Enterprises,10063425,Private Limited Company,US,18/08/2000,Precious Metals,1006754,BO1672,Low,N,07/11/2025
+E12012,Vertex Global,10063834,Public Limited Company,CA,28/08/2001,Financial Holdings,1006790,BO1674,Low,N,05/03/2026
+E12013,Vertex Trading,10064102,Private Limited Company,NL,19/11/2019,Import/Export,1006875,BO1681,Low,N,17/10/2025
+E12014,Verano Global,10064563,Limited Liability Partnership,IT,27/04/2008,Manufacturing,1006928,BO1686,Low,N,20/03/2026
+E12015,Titan Capital,10064804,Limited Liability Partnership,US,25/10/1996,Wholesale Trade,1007017,BO1692,Low,N,11/06/2026
+E12016,Summit Global,10065185,Limited Liability Partnership,JP,10/09/1998,Precious Metals,1007093,BO1700,Low,N,28/12/2025
+E12017,Willow Trading,10065601,Sole Trader,CH,16/09/2008,Freight & Logistics,1007150,BO1706,Low,N,29/12/2025
+E12018,Willow Capital,10065835,Private Limited Company,ES,14/08/2012,Commodity Trading,1007239,BO1715,Low,N,21/10/2025
+E12019,Halcyon Industries,10066278,Private Limited Company,ES,07/10/2020,Commodity Trading,1007297,BO1722,Low,N,27/07/2025
+E12020,Sterling Enterprises,10066759,Sole Trader,GB,04/05/2012,Financial Holdings,1007324,BO1729,Low,N,05/03/2026
+E12021,Meridian Global,10067642,Sole Trader,ES,23/06/2008,Import/Export,1007407,BO1736,Low,N,17/02/2026
+E12022,Nova Ventures,10068417,Private Limited Company,SE,10/07/1999,Real Estate,1007481,BO1737,Low,N,11/07/2025
+E12023,Verano Trading,10069281,Private Limited Company,US,06/01/2002,Consulting Services,1007516,BO1740,Low,N,01/12/2025
+E12024,Verano Consulting,10069651,Private Limited Company,JP,10/01/2005,Real Estate,1007563,BO1743,Low,N,05/06/2026
+E12025,Summit Ltd,10069901,Private Limited Company,GB,22/06/2005,Precious Metals,1007622,BO1751,Low,N,28/01/2026
+E12026,Titan Ventures,10070548,Limited Liability Partnership,DE,03/08/2008,Import/Export,1007696,BO1756,Low,N,01/03/2026
+E12027,Willow Logistics,10071386,Limited Liability Partnership,SE,04/11/2007,Wholesale Trade,1007779,BO1760,Low,N,05/07/2025
+E12028,Zephyr Logistics,10071829,Limited Liability Partnership,IT,07/04/2003,Real Estate,1007872,BO1769,Low,N,10/03/2026
+E12029,Verano Capital,10072329,Private Limited Company,IE,02/07/2019,Financial Holdings,1007912,BO1770,Low,N,07/02/2026
+E12030,Cobalt Group,10072464,Private Limited Company,IE,20/11/2020,Import/Export,1007996,BO1779,Low,N,22/03/2026
+E12031,Meridian Industries,10072654,Public Limited Company,IE,11/01/1997,Consulting Services,1008050,BO1781,Low,N,21/08/2025
+E12032,Atlas Industries,10073046,Limited Liability Partnership,US,26/03/2009,Precious Metals,1008130,BO1789,Low,N,28/06/2026
+E12033,Meridian Trading,10073285,Public Limited Company,GB,22/08/2014,Shipping,1008219,BO1793,Low,N,07/06/2026
+E12034,Apex Global,10074203,Limited Liability Partnership,DE,20/12/2007,Import/Export,1008277,BO1800,Low,N,10/05/2026
+E12035,Cascade Ventures,10074345,Private Limited Company,AU,06/11/1997,Precious Metals,1008364,BO1806,Low,N,19/04/2026
+E12036,Cascade Enterprises,10074719,Public Limited Company,IE,05/09/2001,Freight & Logistics,1008459,BO1808,Low,N,20/11/2025
+E12037,Nova Ltd,10074824,Sole Trader,ES,01/01/2016,Shipping,1008554,BO1811,Low,N,30/11/2025
+E12038,Beacon Partners,10074976,Public Limited Company,JP,23/02/2014,Precious Metals,1008638,BO1817,Low,N,08/06/2026
+E12039,Apex Consulting,10075780,Private Limited Company,FR,17/10/2003,Import/Export,1008713,BO1818,Low,N,02/04/2026
+E12040,Zephyr Holdings,10076652,Private Limited Company,AU,04/04/2016,Freight & Logistics,1008729,BO1826,Low,N,15/05/2026
+E12041,Marlin Enterprises,10076840,Sole Trader,GB,12/07/2013,Wholesale Trade,1008794,BO1829,Low,N,16/02/2026
+E12042,Pinnacle Logistics,10077545,Public Limited Company,US,05/12/2005,Freight & Logistics,1008824,BO1830,Low,N,22/06/2026
+E12043,Orion Trading,10077796,Public Limited Company,NL,13/05/2010,Shipping,1008873,BO1836,Low,N,20/03/2026
+E12044,Halcyon Global,10078183,Public Limited Company,DE,16/12/2008,Shipping,1008890,BO1837,Low,N,01/10/2025
+E12045,Crest Enterprises,10078509,Limited Liability Partnership,NL,01/10/2015,Financial Holdings,1008907,BO1841,Low,N,24/11/2025
+E12046,Vertex Group,10078816,Limited Liability Partnership,SE,12/08/2014,Precious Metals,1008919,BO1845,Low,N,25/07/2025
+E12047,Harbour Consulting,10079658,Sole Trader,DE,21/07/2015,Commodity Trading,1009002,BO1846,Low,N,01/08/2025
+E12048,Northgate Holdings,10079810,Public Limited Company,IE,18/08/2013,Wholesale Trade,1009014,BO1854,Low,N,06/01/2026
+E12049,Willow Enterprises,10080179,Public Limited Company,US,16/03/2000,Import/Export,1009047,BO1860,Low,N,07/09/2025
+E12050,Meridian Logistics,10081031,Limited Liability Partnership,SE,28/02/1998,Commodity Trading,1009115,BO1863,Low,N,04/07/2025
+E12051,Pallas Trading,10081905,Private Limited Company,GB,07/06/2003,Manufacturing,1009179,BO1869,Low,N,29/10/2025
+E12052,Silverline Logistics,10082253,Private Limited Company,IT,19/10/2015,Commodity Trading,1009198,BO1873,Low,N,15/10/2025
+E12053,Willow Holdings,10082833,Limited Liability Partnership,SE,20/12/2017,Consulting Services,1009273,BO1882,Low,N,31/07/2025
+E12054,Marlin Global,10083638,Public Limited Company,IT,12/04/2005,Import/Export,1009346,BO1891,Low,N,01/08/2025
+E13000,Quill Holdings,10084084,Private Limited Company,CA,19/09/2001,Manufacturing,1009387,BO1895,Low,N,14/07/2025
+E13001,Cobalt Partners,10084601,Public Limited Company,GB,15/07/2019,Shipping,1009451,BO1899,Medium,N,26/10/2025
+E13002,Summit Consulting,10085101,Private Limited Company,FR,24/04/1997,Import/Export,1009547,BO1904,Medium,N,28/11/2025
+E13003,Onyx Ventures,10085972,Public Limited Company,JP,28/07/2010,Freight & Logistics,1009607,BO1908,Medium,N,04/07/2025
+E13004,Summit Partners,10086433,Public Limited Company,IT,18/01/2003,Precious Metals,1009633,BO1911,Medium,N,23/07/2025
+E13005,Pinnacle Enterprises,10087036,Limited Liability Partnership,US,14/08/2018,Financial Holdings,1009674,BO1914,Medium,N,12/10/2025
+E13006,Cobalt Industries,10087379,Sole Trader,DE,23/03/2004,Real Estate,1009734,BO1923,Low,N,23/07/2025
+E13007,Delta Holdings,10087571,Public Limited Company,NL,16/12/1996,Precious Metals,1009745,BO1932,Low,N,26/03/2026
+E13008,Cascade Partners,10088050,Private Limited Company,DE,16/04/2013,Manufacturing,1009786,BO1936,Low,N,20/06/2026
+E13009,Verano Enterprises,10088156,Public Limited Company,ES,20/11/2011,Wholesale Trade,1009799,BO1945,Low,N,12/09/2025
+E13010,Quill Industries,10088865,Sole Trader,FR,05/04/2014,Consulting Services,1009874,BO1946,Low,N,15/02/2026
+E13011,Titan Partners,10089336,Sole Trader,CH,08/12/1999,Wholesale Trade,1009944,BO1954,Low,N,05/02/2026
+E13012,Aurora Trading,10090186,Private Limited Company,NL,01/02/2014,Commodity Trading,1009981,BO1958,Low,N,07/05/2026
+E13013,Vertex Logistics,10091037,Sole Trader,DE,11/01/2006,Freight & Logistics,1010064,BO1961,Low,N,31/05/2026
+E13014,Ironclad Industries,10091968,Private Limited Company,DE,23/02/1996,Wholesale Trade,1010119,BO1962,Low,N,20/12/2025
+E13015,Ironclad Ventures,10092487,Private Limited Company,FR,14/11/2020,Precious Metals,1010165,BO1964,Low,N,28/04/2026
+E13016,Vertex Capital,10093389,Limited Liability Partnership,FR,21/09/1997,Freight & Logistics,1010199,BO1971,Low,N,01/07/2026
+E13017,Beacon Holdings,10093531,Sole Trader,AU,02/09/2013,Wholesale Trade,1010234,BO1977,Low,N,27/08/2025
+E13018,Delta Global,10093802,Limited Liability Partnership,CA,28/10/2001,Precious Metals,1010257,BO1978,Low,N,25/06/2026
+E13019,Sterling Global,10094693,Private Limited Company,NL,05/01/2004,Freight & Logistics,1010306,BO1983,Low,N,08/10/2025
+E13020,Regent Group,10095217,Private Limited Company,US,16/06/2009,Precious Metals,1010340,BO1991,Low,N,05/02/2026
+E13021,Beacon Logistics,10095727,Public Limited Company,IT,26/03/2011,Manufacturing,1010369,BO1998,Low,N,07/04/2026
+E13022,Marlin Group,10095939,Sole Trader,ES,24/09/2008,Consulting Services,1010460,BO1999,Low,N,04/02/2026
+E13023,Halcyon Capital,10096667,Public Limited Company,NL,24/06/2013,Manufacturing,1010486,BO2007,Low,N,26/08/2025
+E13024,Titan Logistics,10097060,Sole Trader,FR,04/11/2010,Freight & Logistics,1010551,BO2014,Low,N,21/06/2026
+E13025,Zephyr Enterprises,10097530,Public Limited Company,AU,13/02/1996,Shipping,1010580,BO2017,Low,N,20/07/2025
+E13026,Orion Capital,10098176,Sole Trader,US,05/05/2003,Real Estate,1010606,BO2023,Low,N,05/02/2026
+E13027,Aurora Logistics,10098600,Sole Trader,FR,16/08/2005,Financial Holdings,1010645,BO2025,Low,N,07/08/2025
+E13028,Silverline Ltd,10099317,Public Limited Company,JP,04/12/2004,Precious Metals,1010712,BO2034,Low,N,19/02/2026
+E13029,Harbour Holdings,10100121,Sole Trader,AU,06/01/1999,Financial Holdings,1010750,BO2042,Low,N,25/07/2025
+E13030,Atlas Global,10100479,Sole Trader,ES,11/09/2001,Freight & Logistics,1010805,BO2048,Low,N,27/02/2026
+E13031,Crest Trading,10100678,Public Limited Company,IT,09/10/2011,Shipping,1010890,BO2052,Low,N,07/01/2026
+E13032,Apex Group,10101386,Public Limited Company,FR,20/05/2017,Shipping,1010954,BO2054,Low,N,25/02/2026
+E13033,Crest Holdings,10101716,Private Limited Company,IE,22/09/2003,Shipping,1011007,BO2062,Low,N,18/03/2026
+E13034,Harbour Industries,10102579,Private Limited Company,AU,13/09/2010,Freight & Logistics,1011062,BO2071,Low,N,04/12/2025
+E13035,Willow Consulting,10103070,Public Limited Company,CH,14/10/2012,Freight & Logistics,1011121,BO2079,Low,N,18/06/2026
+E13036,Apex Ventures,10104010,Private Limited Company,IE,28/03/2018,Shipping,1011182,BO2087,Low,N,28/05/2026
+E13037,Beacon Capital,10104308,Limited Liability Partnership,NL,19/02/2014,Real Estate,1011224,BO2094,Low,N,19/08/2025
+E13038,Atlas Enterprises,10105156,Limited Liability Partnership,CH,26/05/2004,Real Estate,1011245,BO2101,Low,N,07/12/2025
+E13039,Regent Ventures,10105839,Sole Trader,SE,28/08/2011,Import/Export,1011323,BO2105,Low,N,21/11/2025
+E13040,Atlas Trading,10106505,Private Limited Company,GB,25/11/2000,Import/Export,1011343,BO2111,Low,N,25/10/2025
+E13041,Orion Global,10106656,Public Limited Company,CH,17/02/2012,Financial Holdings,1011392,BO2113,Low,N,24/01/2026
+E13042,Apex Enterprises,10107429,Private Limited Company,DE,24/04/2014,Freight & Logistics,1011420,BO2119,Low,N,24/02/2026
+E13043,Onyx Industries,10108102,Private Limited Company,JP,21/06/2020,Real Estate,1011483,BO2124,Low,N,04/06/2026
+E13044,Halcyon Partners,10108417,Private Limited Company,FR,02/04/2017,Real Estate,1011536,BO2126,Low,N,08/08/2025
+E13045,Cobalt Capital,10109316,Public Limited Company,SE,08/04/2007,Freight & Logistics,1011602,BO2133,Low,N,12/05/2026
+E13046,Crest Industries,10109448,Sole Trader,NL,07/06/2015,Wholesale Trade,1011693,BO2134,Low,N,26/02/2026
+E13047,Regent Holdings,10110344,Public Limited Company,JP,17/09/2018,Shipping,1011749,BO2136,Low,N,04/04/2026
+E13048,Beacon Industries,10111019,Sole Trader,CA,24/07/2017,Freight & Logistics,1011827,BO2139,Low,N,01/06/2026
+E13049,Verano Industries,10111712,Public Limited Company,CA,01/01/1999,Consulting Services,1011904,BO2146,Low,N,27/07/2025
+E13050,Pallas Consulting,10112401,Limited Liability Partnership,NL,01/07/2009,Precious Metals,1011975,BO2147,Low,N,09/01/2026
+E13051,Granite Trading,10112585,Limited Liability Partnership,FR,23/06/2012,Wholesale Trade,1011999,BO2152,Low,N,04/09/2025
+E13052,Delta Logistics,10113397,Public Limited Company,JP,17/03/2006,Wholesale Trade,1012091,BO2159,Low,N,27/10/2025
+E13053,Vertex Ltd,10114173,Sole Trader,AU,24/12/2004,Consulting Services,1012149,BO2163,Low,N,14/12/2025
+E13054,Atlas Ventures,10114662,Public Limited Company,CH,05/05/2003,Shipping,1012214,BO2170,Low,N,25/12/2025
+E14000,Orion Group,10114860,Limited Liability Partnership,SE,15/07/2010,Real Estate,1012228,BO2171,Low,N,17/04/2026
+E14001,Crest Capital,10115473,Private Limited Company,SC,05/06/2025,Financial Holdings,1012282,BO90019,High,N,04/03/2026
+E14002,Sterling Industries,10115956,Private Limited Company,KY,07/10/2025,Financial Holdings,1012331,BO90019,High,N,25/11/2025
+E14003,Pinnacle Partners,10116302,Private Limited Company,KY,16/03/2024,Financial Holdings,1012346,BO90019,High,N,06/01/2026
+E14004,Summit Logistics,10117215,Private Limited Company,SC,03/03/2025,Financial Holdings,1012371,BO90019,High,N,27/05/2026
+E14005,Aurora Holdings,10117651,Limited Liability Partnership,CA,25/01/2016,Commodity Trading,1012431,BO2185,High,N,04/06/2026
+E14006,Pallas Industries,10118183,Public Limited Company,JP,16/01/2005,Import/Export,1012488,BO2186,Low,N,07/02/2026
+E14007,Harbour Global,10118667,Public Limited Company,DE,18/03/2004,Freight & Logistics,1012554,BO2193,Low,N,21/08/2025
+E14008,Zephyr Partners,10118925,Private Limited Company,CH,23/10/1995,Consulting Services,1012603,BO2198,Low,N,12/05/2026
+E14009,Delta Partners,10119262,Public Limited Company,JP,12/06/2004,Wholesale Trade,1012639,BO2205,Low,N,08/03/2026
+E14010,Willow Industries,10119371,Private Limited Company,CA,21/01/2006,Manufacturing,1012691,BO2212,Low,N,20/02/2026
+E14011,Silverline Trading,10119985,Private Limited Company,AU,05/03/2013,Wholesale Trade,1012715,BO2221,Low,N,25/12/2025
+E14012,Pallas Partners,10120209,Private Limited Company,US,24/07/1995,Manufacturing,1012742,BO2223,Low,N,25/06/2026
+E14013,Nova Industries,10120608,Private Limited Company,SE,12/04/2013,Import/Export,1012785,BO2225,Low,N,03/09/2025
+E14014,Pallas Holdings,10121520,Public Limited Company,GB,22/09/2014,Commodity Trading,1012870,BO2230,Low,N,13/12/2025
+E14015,Meridian Group,10121861,Private Limited Company,ES,02/08/2010,Wholesale Trade,1012950,BO2233,Low,N,20/09/2025
+E14016,Harbour Group,10122568,Public Limited Company,SE,17/06/2015,Wholesale Trade,1013017,BO2236,Low,N,14/04/2026
+E14017,Halcyon Enterprises,10123270,Sole Trader,SE,26/05/1996,Manufacturing,1013114,BO2245,Low,N,11/06/2026
+E14018,Marlin Partners,10123459,Public Limited Company,IE,25/12/2000,Financial Holdings,1013142,BO2250,Low,N,05/07/2025
+E14019,Silverline Capital,10124375,Private Limited Company,CA,14/02/2001,Shipping,1013227,BO2252,Low,N,08/06/2026
+E14020,Halcyon Group,10124512,Limited Liability Partnership,AU,12/11/2014,Commodity Trading,1013302,BO2257,Low,N,11/06/2026
+E14021,Crest Group,10125113,Sole Trader,SE,09/01/2000,Consulting Services,1013337,BO2263,Low,N,15/06/2026
+E14022,Harbour Enterprises,10125921,Limited Liability Partnership,CH,21/01/2014,Commodity Trading,1013434,BO2270,Low,N,23/03/2026
+E14023,Sterling Group,10126810,Public Limited Company,FR,19/07/2002,Precious Metals,1013470,BO2276,Low,N,18/06/2026
+E14024,Vertex Consulting,10127230,Public Limited Company,SE,15/10/1999,Commodity Trading,1013503,BO2283,Low,N,15/08/2025
+E14025,Meridian Holdings,10127645,Private Limited Company,IT,24/08/2016,Precious Metals,1013514,BO2291,Low,N,10/03/2026
+E14026,Harbour Trading,10128581,Public Limited Company,DE,20/11/2007,Precious Metals,1013563,BO2295,Low,N,18/11/2025
+E14027,Cascade Logistics,10128719,Limited Liability Partnership,JP,28/06/2017,Financial Holdings,1013630,BO2302,Low,N,13/06/2026
+E14028,Verano Ventures,10129396,Private Limited Company,CH,03/05/2014,Shipping,1013727,BO2306,Low,N,03/09/2025
+E14029,Pinnacle Consulting,10129841,Private Limited Company,JP,19/03/2010,Shipping,1013749,BO2307,Low,N,13/05/2026
+E14030,Delta Capital,10130335,Private Limited Company,ES,01/08/2014,Shipping,1013816,BO2311,Low,N,24/05/2026
+E14031,Northgate Group,10130892,Private Limited Company,ES,03/03/2020,Precious Metals,1013895,BO2315,Low,N,30/10/2025
+E14032,Cobalt Logistics,10131777,Private Limited Company,ES,09/05/2010,Precious Metals,1013979,BO2318,Low,N,25/09/2025
+E14033,Pinnacle Industries,10132509,Public Limited Company,US,19/10/1999,Real Estate,1014013,BO2324,Low,N,01/03/2026
+E14034,Pallas Capital,10133224,Sole Trader,FR,21/04/2007,Shipping,1014101,BO2326,Low,N,18/05/2026
+E14035,Pallas Logistics,10133717,Limited Liability Partnership,CH,06/03/2006,Real Estate,1014125,BO2330,Low,N,04/04/2026
+E14036,Summit Industries,10134642,Private Limited Company,IT,23/12/1996,Commodity Trading,1014175,BO2332,Low,N,17/03/2026
+E14037,Ironclad Ltd,10135354,Private Limited Company,CA,25/08/2003,Freight & Logistics,1014212,BO2337,Low,N,08/07/2025
+E14038,Harbour Ventures,10136125,Sole Trader,ES,03/07/2009,Freight & Logistics,1014244,BO2343,Low,N,06/06/2026
+E14039,Summit Holdings,10136952,Private Limited Company,CA,06/11/1996,Commodity Trading,1014330,BO2347,Low,N,30/03/2026
+E14040,Titan Consulting,10137425,Limited Liability Partnership,GB,18/01/2008,Commodity Trading,1014366,BO2348,Low,N,06/06/2026
+E14041,Meridian Ventures,10137781,Private Limited Company,DE,11/12/2011,Freight & Logistics,1014423,BO2349,Low,N,19/06/2026
+E14042,Granite Consulting,10138627,Limited Liability Partnership,CA,04/04/2007,Wholesale Trade,1014495,BO2355,Low,N,20/04/2026
+E14043,Silverline Enterprises,10139114,Public Limited Company,DE,06/07/2007,Commodity Trading,1014577,BO2362,Low,N,27/04/2026
+E14044,Granite Global,10139306,Public Limited Company,JP,08/01/1997,Import/Export,1014664,BO2364,Low,N,26/05/2026
+E14045,Zephyr Capital,10140181,Public Limited Company,DE,25/02/2018,Shipping,1014694,BO2370,Low,N,24/01/2026
+E14046,Northgate Industries,10141030,Limited Liability Partnership,SE,11/05/2000,Precious Metals,1014762,BO2374,Low,N,17/02/2026
+E14047,Granite Capital,10141785,Sole Trader,CA,26/03/2014,Consulting Services,1014791,BO2376,Low,N,02/02/2026
+E14048,Regent Enterprises,10142264,Public Limited Company,CH,25/10/1998,Wholesale Trade,1014880,BO2381,Low,N,28/08/2025
+E14049,Willow Partners,10142473,Public Limited Company,IT,10/05/2006,Manufacturing,1014927,BO2389,Low,N,13/02/2026
+E14050,Northgate Capital,10143137,Private Limited Company,AU,15/05/2019,Import/Export,1014963,BO2397,Low,N,26/03/2026
+E14051,Sterling Holdings,10143840,Sole Trader,JP,24/02/2010,Wholesale Trade,1014978,BO2406,Low,N,07/10/2025
+E14052,Meridian Capital,10144512,Public Limited Company,DE,07/09/2005,Import/Export,1015010,BO2409,Low,N,16/10/2025
+E14053,Titan Enterprises,10145189,Sole Trader,SE,20/06/1996,Consulting Services,1015077,BO2415,Low,N,23/04/2026
+E14054,Harbour Logistics,10146090,Private Limited Company,CH,17/05/1996,Shipping,1015098,BO2424,Low,N,02/05/2026
+E15000,Silverline Partners,10146376,Public Limited Company,SE,15/10/2009,Wholesale Trade,1015112,BO2431,Low,N,10/10/2025
+E15001,Apex Partners,10146857,Public Limited Company,IT,08/10/2005,Wholesale Trade,1015193,BO2438,Low,N,07/07/2025
+E15002,Cobalt Ltd,10147548,Public Limited Company,DE,01/12/2019,Precious Metals,1015259,BO2446,Low,N,16/04/2026
+E15003,Zephyr Ltd,10147984,Public Limited Company,CH,02/12/2009,Consulting Services,1015335,BO2451,Low,N,13/01/2026
+E15004,Titan Group,10148866,Limited Liability Partnership,AU,24/03/2015,Precious Metals,1015375,BO2457,Low,N,03/01/2026
+E15005,Northgate Global,10149715,Sole Trader,US,11/07/2007,Real Estate,1015387,BO2461,Low,N,14/08/2025
+E15006,Granite Logistics,10150295,Sole Trader,JP,10/09/1997,Import/Export,1015420,BO2462,Low,N,20/04/2026
+E15007,Cascade Consulting,10150612,Private Limited Company,JP,14/07/2011,Import/Export,1015455,BO2464,Low,N,10/11/2025
+E15008,Delta Industries,10151085,Public Limited Company,US,17/01/2005,Import/Export,1015507,BO2472,Low,N,07/10/2025
+E15009,Titan Ltd,10151248,Public Limited Company,CH,13/09/2019,Freight & Logistics,1015562,BO2475,Low,N,24/08/2025
+E15010,Aurora Enterprises,10151698,Sole Trader,CH,13/09/2012,Wholesale Trade,1015585,BO2479,Low,N,02/09/2025
+E15011,Halcyon Consulting,10152055,Public Limited Company,JP,17/08/1996,Financial Holdings,1015613,BO2483,Low,N,23/03/2026
+E15012,Beacon Ventures,10152178,Sole Trader,IT,13/06/2011,Commodity Trading,1015641,BO2486,Low,N,02/07/2025
+E15013,Onyx Capital,10152305,Sole Trader,SE,22/01/2010,Import/Export,1015720,BO2490,Low,N,22/12/2025
+E15014,Quill Ventures,10152595,Sole Trader,NL,02/05/2016,Import/Export,1015795,BO2495,Low,N,24/07/2025
+E15015,Delta Ventures,10153315,Sole Trader,FR,28/03/2006,Freight & Logistics,1015832,BO2498,Low,N,07/02/2026
+E15016,Northgate Logistics,10154188,Limited Liability Partnership,GB,25/10/2007,Precious Metals,1015856,BO2502,Low,N,17/08/2025
+E15017,Beacon Enterprises,10154428,Public Limited Company,IE,05/05/2002,Precious Metals,1015923,BO2511,Low,N,24/07/2025
+E15018,Northgate Ltd,10154766,Public Limited Company,IE,19/10/1995,Import/Export,1016010,BO2512,Low,N,05/07/2025
+E15019,Zephyr Group,10155055,Public Limited Company,SE,15/10/2004,Manufacturing,1016089,BO2513,Low,N,10/09/2025
+E15020,Cobalt Trading,10155963,Public Limited Company,NL,03/05/2019,Wholesale Trade,1016137,BO2514,Low,N,24/12/2025
+E15021,Halcyon Trading,10156513,Public Limited Company,FR,05/04/2019,Manufacturing,1016151,BO2519,Low,N,06/11/2025
+E15022,Quill Partners,10157240,Private Limited Company,IE,09/07/2018,Real Estate,1016232,BO2522,Low,N,16/02/2026
+E15023,Orion Logistics,10157879,Public Limited Company,CH,27/09/2003,Precious Metals,1016318,BO2525,Low,N,20/04/2026
+E15024,Orion Consulting,10158115,Public Limited Company,CA,07/01/2011,Financial Holdings,1016360,BO2527,Low,N,07/02/2026
+E15025,Zephyr Global,10158904,Public Limited Company,ES,19/03/2016,Consulting Services,1016447,BO2530,Low,N,26/07/2025
+E15026,Sterling Ventures,10159413,Public Limited Company,IE,27/07/1997,Shipping,1016521,BO2535,Low,N,19/11/2025
+E15027,Cascade Holdings,10159563,Limited Liability Partnership,SE,02/07/2012,Commodity Trading,1016589,BO2539,Low,N,07/08/2025
+E15028,Atlas Logistics,10160211,Sole Trader,FR,17/09/2004,Commodity Trading,1016609,BO2544,Low,N,20/07/2025
+E15029,Onyx Ltd,10160494,Sole Trader,NL,01/07/1999,Shipping,1016668,BO2551,Low,N,19/09/2025
+E15030,Onyx Consulting,10161182,Public Limited Company,SE,13/04/2008,Import/Export,1016740,BO2556,Low,N,04/06/2026
+E15031,Sterling Logistics,10161706,Private Limited Company,GB,28/07/2011,Commodity Trading,1016776,BO2564,Low,N,18/08/2025
+E15032,Titan Holdings,10162261,Private Limited Company,AU,26/08/2004,Shipping,1016816,BO2568,Low,N,25/09/2025
+E15033,Sterling Consulting,10163151,Limited Liability Partnership,SE,13/04/2011,Precious Metals,1016854,BO2570,Low,N,14/12/2025
+E15034,Beacon Trading,10163619,Limited Liability Partnership,US,26/05/2008,Financial Holdings,1016882,BO2578,Low,N,18/01/2026
+E15035,Summit Group,10164286,Limited Liability Partnership,IE,10/08/2006,Commodity Trading,1016898,BO2587,Low,N,11/06/2026
+E15036,Cascade Group,10165064,Private Limited Company,IT,06/01/2019,Financial Holdings,1016977,BO2591,Low,N,12/08/2025
+E15037,Titan Trading,10165849,Sole Trader,FR,14/06/2014,Freight & Logistics,1017027,BO2594,Low,N,03/08/2025
+E15038,Ironclad Trading,10166752,Public Limited Company,GB,12/12/2005,Precious Metals,1017113,BO2600,Low,N,27/09/2025
+E15039,Aurora Capital,10167023,Limited Liability Partnership,CH,02/02/2017,Import/Export,1017138,BO2603,Low,N,16/09/2025
+E15040,Nova Logistics,10167661,Sole Trader,DE,27/09/2007,Financial Holdings,1017153,BO2607,Low,N,17/06/2026
+E15041,Crest Ventures,10167916,Sole Trader,IE,09/02/1997,Freight & Logistics,1017168,BO2609,Low,N,14/05/2026
+E15042,Marlin Logistics,10168814,Limited Liability Partnership,CA,22/06/2016,Precious Metals,1017234,BO2617,Low,N,20/07/2025
+E15043,Marlin Consulting,10169418,Private Limited Company,NL,07/06/2016,Financial Holdings,1017276,BO2620,Low,N,08/05/2026
+E15044,Pallas Global,10169987,Public Limited Company,GB,22/11/2011,Commodity Trading,1017310,BO2624,Low,N,18/08/2025
+E15045,Pallas Enterprises,10170195,Public Limited Company,ES,22/10/2000,Consulting Services,1017393,BO2627,Low,N,30/11/2025
+E15046,Harbour Capital,10170737,Public Limited Company,NL,19/03/1997,Financial Holdings,1017451,BO2636,Low,N,02/03/2026
+E15047,Cobalt Enterprises,10171611,Private Limited Company,AU,10/11/2013,Shipping,1017521,BO2644,Low,N,06/07/2025
+E15048,Northgate Partners,10172040,Limited Liability Partnership,CA,07/03/2006,Import/Export,1017616,BO2645,Low,N,27/03/2026
+E15049,Nova Holdings,10172274,Public Limited Company,CA,04/05/2006,Consulting Services,1017662,BO2646,Low,N,02/11/2025
+E15050,Granite Ltd,10173127,Private Limited Company,IE,03/11/2013,Import/Export,1017695,BO2654,Low,N,14/04/2026
+E15051,Beacon Ltd,10173548,Public Limited Company,NL,12/03/2019,Wholesale Trade,1017785,BO2662,Low,N,11/04/2026
+E15052,Pallas Ltd,10173924,Sole Trader,IT,01/10/1995,Financial Holdings,1017829,BO2670,Low,N,29/10/2025
+E15053,Onyx Enterprises,10174344,Limited Liability Partnership,ES,23/04/1997,Financial Holdings,1017877,BO2674,Low,N,06/10/2025
+E15054,Northgate Ventures,10174496,Private Limited Company,GB,24/12/2004,Manufacturing,1017895,BO2678,Low,N,05/02/2026

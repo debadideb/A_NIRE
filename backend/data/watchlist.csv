@@ -1,6 +1,7 @@
 entity_id,entity_name,list_type,reason,risk_level,added_by,date_added,active_flag
-E10000,Nova Ventures,Internal AML Watchlist,High-risk jurisdiction exposure,High,TMS-AUTO,30/11/2025,Y
-E11000,Crest Global,Internal AML Watchlist,Rapid movement / possible structuring,High,TMS-AUTO,09/07/2025,Y
-E12000,Summit Consulting,Internal AML Watchlist,Sanctioned-jurisdiction corridor,High,TMS-AUTO,17/04/2026,Y
-E13000,Cascade Industries,Internal AML Watchlist,Circular fund-flow participant,High,TMS-AUTO,08/02/2026,Y
-E14001,Sterling Ventures,Internal AML Watchlist,Offshore shell-linkage cluster,High,TMS-AUTO,03/05/2026,Y
+E10000,Aurora Industries,Internal AML Watchlist,High-risk jurisdiction exposure,High,TMS-AUTO,30/11/2025,Y
+E11000,Crest Global,Internal AML Watchlist,Rapid movement / possible structuring,High,TMS-AUTO,31/03/2026,Y
+E12000,Cobalt Global,Internal AML Watchlist,Sanctioned-jurisdiction corridor,High,TMS-AUTO,10/06/2026,Y
+E13000,Quill Holdings,Internal AML Watchlist,Circular fund-flow participant,High,TMS-AUTO,08/06/2026,Y
+E14001,Crest Capital,Internal AML Watchlist,Offshore shell-linkage cluster,High,TMS-AUTO,24/06/2026,Y
+E15000,Silverline Partners,Internal AML Watchlist,Periodic KYC review — no adverse finding,Low,TMS-AUTO,05/05/2026,Y

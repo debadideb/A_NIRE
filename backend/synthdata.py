@@ -204,6 +204,7 @@ class Gen:
             ("E00337", "Halcyon Trading Group", "Import/Export"),
             ("E00452", "Sterling Bridge Holdings", "Financial Holdings"),
             ("E00519", "Orion Freight Services Ltd", "Freight & Logistics"),
+            ("E00637", "Kingfisher Retail Group", "Retail Trade"),
         ]
         for eid, nm, ind in subjects:
             self.entity(eid, name=nm, country="GB", industry=ind, risk="Medium",
@@ -215,6 +216,7 @@ class Gen:
         self._case3_sanctioned()
         self._case4_circular()
         self._case5_shell()
+        self._case6_clean()
         self._cases_meta(subjects)
 
     # CASE-0001 — high-value outbound to high-risk jurisdictions (+ sanctioned corridor)
@@ -253,6 +255,17 @@ class Gen:
             when = START + timedelta(days=window0 + self.rng.randint(0, 25))
             self.txn(S, cp, "D", self.money(8500, 9950), when,
                      benef=self.rng.choice(["GB", "DE", "NL"]), ttype="FASTER_PAYMENT")
+        # Genuine overlap: "rapid movement of funds" also shows as circular flow —
+        # a few counterparties round-trip the money back within days at ~the same
+        # amount, so circular_flow fires alongside structuring (a messy real case).
+        for cp in cps[5:8]:
+            for _ in range(6):
+                amt = self.money(40000, 250000)
+                out = self.some_date()
+                back = out + timedelta(days=self.rng.randint(1, 4))
+                self.txn(S, cp, "D", amt, out, benef="GB", ttype="CHAPS")
+                self.txn(S, cp, "C", round(amt * self.rng.uniform(0.985, 1.0), 2), back,
+                         orig="GB", ttype="CHAPS")
         self.wc(cps[4], "Adverse Media", "Potential", self.rng.randint(60, 80), "Medium")
         self.wl(cps[0], "Rapid movement / possible structuring", "High")
 
@@ -313,17 +326,37 @@ class Gen:
             for _ in range(55):
                 self.txn(S, cp, "D", self.money(30000, 260000), self.some_date(),
                          benef=self.entities[cp]["incorporation_country"], ttype="WIRE")
+        # Genuine overlap: the offshore network also routes funds to a confirmed-
+        # sanctioned entity, so sanctioned_exposure fires alongside shell linkage
+        # and high-risk outbound — a heavy, multi-typology case.
+        sanc = cps[5]
+        self.entities[sanc]["kyc_risk_rating"] = "High"
+        self.wc(sanc, "Sanctions", "Confirmed", self.rng.randint(88, 96), "High")
+        for _ in range(30):
+            self.txn(S, sanc, "D", self.money(120000, 480000), self.some_date(),
+                     benef="SY", ttype="SWIFT")
         self.wl(shells[0], "Offshore shell-linkage cluster", "High")
+
+    # CASE-0006 — clean control: only benign domestic activity, so NO detector
+    # fires and the case scores 0.0 -> CLEAR. It is the negative control that
+    # proves the thresholds separate signal from ordinary trading, and gives the
+    # queue a non-SAR/EDD case.
+    def _case6_clean(self):
+        S = "E00637"
+        cps = self.pool(5)
+        self.background(S, cps, 900, 560)
+        self.wl(cps[0], "Periodic KYC review — no adverse finding", "Low")
 
     def _cases_meta(self, subjects):
         meta = [
-            ("CASE-2026-0001", "18/01/2026", "High-value outbound to high-risk jurisdiction", "Pending EDD", "R. Chen"),
-            ("CASE-2026-0002", "14/02/2026", "Rapid movement of funds / structuring pattern", "In Review", "S. Okafor"),
-            ("CASE-2026-0003", "12/05/2026", "Sanctioned-jurisdiction corridor exposure", "Open", "A. Morgan"),
-            ("CASE-2026-0004", "26/02/2026", "Circular fund-flow anomaly detected", "Open", "L. Rossi"),
-            ("CASE-2026-0005", "28/04/2026", "Offshore shell-linkage cluster", "In Review", "S. Okafor"),
+            ("CASE-2026-0001", "18/01/2026", "High-value outbound to high-risk jurisdiction", "Pending EDD", "R. Chen", "High"),
+            ("CASE-2026-0002", "14/02/2026", "Rapid movement of funds / structuring pattern", "In Review", "S. Okafor", "High"),
+            ("CASE-2026-0003", "12/05/2026", "Sanctioned-jurisdiction corridor exposure", "Open", "A. Morgan", "High"),
+            ("CASE-2026-0004", "26/02/2026", "Circular fund-flow anomaly detected", "Open", "L. Rossi", "High"),
+            ("CASE-2026-0005", "28/04/2026", "Offshore shell-linkage cluster", "In Review", "S. Okafor", "High"),
+            ("CASE-2026-0006", "05/06/2026", "Periodic KYC review — routine screening", "Open", "R. Chen", "Low"),
         ]
-        for (cid, adate, reason, status, analyst), (eid, nm, _ind) in zip(meta, subjects):
+        for (cid, adate, reason, status, analyst, priority), (eid, nm, _ind) in zip(meta, subjects):
             self.cases.append({
                 "case_id": cid,
                 "subject_id": eid,
@@ -334,7 +367,7 @@ class Gen:
                 "alert_type": "Transaction Monitoring",
                 "case_status": status,
                 "assigned_analyst": analyst,
-                "priority": "High",
+                "priority": priority,
                 "jurisdiction": "GB",
             })
 
