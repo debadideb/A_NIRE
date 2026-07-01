@@ -1,22 +1,6 @@
 entity_id,entity_name,match_category,watchlist_source,match_status,match_score,severity,screening_date
-E10004,Pallas Group,Sanctions,OFAC SDN,Confirmed,87,High,15/04/2026
-E10005,Onyx Global,Adverse Media,Layering Risk,Potential,87,High,21/02/2026
-E10006,Summit Partners,Adverse Media,Layering Risk,Potential,85,High,09/03/2026
-E10007,Atlas Holdings,Adverse Media,Nominee Structure,Potential,66,High,21/04/2026
-E10013,Nova Holdings,PEP,Political Exposure,Potential,74,Medium,23/06/2026
-E11004,Cascade Partners,Sanctions,EU Consolidated,Confirmed,95,High,03/06/2026
-E11006,Northgate Consulting,Adverse Media,Layering Risk,Potential,69,High,08/05/2026
-E11007,Silverline Consulting,Adverse Media,Layering Risk,Potential,65,High,11/06/2026
-E11037,Delta Consulting,PEP,Political Exposure,Potential,68,Medium,23/04/2026
-E11046,Crest Ventures,PEP,Political Exposure,Potential,69,Medium,03/04/2026
-E12004,Quill Enterprises,Sanctions,EU Consolidated,Confirmed,94,High,24/01/2026
-E12006,Quill Holdings,Adverse Media,Layering Risk,Potential,69,Medium,25/04/2026
-E12021,Cobalt Holdings,PEP,Political Exposure,Potential,69,Medium,22/06/2026
-E13004,Nova Ventures,Sanctions,EU Consolidated,Confirmed,84,High,19/05/2026
-E13005,Beacon Enterprises,Adverse Media,Nominee Structure,Potential,79,High,24/03/2026
-E13006,Harbour Group,Adverse Media,Nominee Structure,Potential,78,High,22/05/2026
-E13007,Silverline Consulting,Adverse Media,Shell Company Concern,Potential,68,High,25/02/2026
-E13025,Quill Ltd,PEP,Political Exposure,Potential,68,Medium,24/05/2026
-E13035,Meridian Consulting,PEP,Political Exposure,Potential,77,Medium,14/03/2026
-E14004,Vertex Consulting,Sanctions,UN Security Council,Confirmed,86,High,09/02/2026
-E14005,Northgate Group,Adverse Media,Shell Company Concern,Potential,87,Medium,28/01/2026
+E10004,Onyx Holdings,Sanctions,HM Treasury,Confirmed,92,High,02/05/2026
+E11004,Vertex Partners,Adverse Media,Interpol,Potential,62,Medium,29/03/2026
+E12004,Marlin Trading,Sanctions,HM Treasury,Confirmed,88,High,29/10/2025
+E12005,Atlas Ltd,Adverse Media,Interpol,Potential,73,High,01/03/2026
+E14005,Aurora Holdings,Sanctions,Interpol,Confirmed,94,High,15/11/2025

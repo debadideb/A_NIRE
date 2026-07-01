@@ -13,6 +13,7 @@ Run (from the backend/ directory, with Neo4j running):
 Then open http://localhost:8000/  (UI) and http://localhost:8000/api/case/CASE-2026-0001 (API).
 """
 
+import csv
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -27,6 +28,7 @@ sys.path.insert(0, str(_HERE))
 
 import providers                              # noqa: E402
 import store                                  # noqa: E402
+from config import DATA_DIR                   # noqa: E402
 from graphdb import build_graph, get_driver  # noqa: E402
 from llm import generate_rationale            # noqa: E402
 from scoring import build_case_contract, build_entity_detail  # noqa: E402
@@ -36,12 +38,15 @@ FRONTEND_DIR = _HERE.parent / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Connect to Neo4j, build the graph, and cache the scored contract.
+    """Connect to Neo4j, build the graph once, and cache a scored contract per case.
 
-    If Neo4j is unreachable we still start (so the UI/static layer is testable)
-    but the case endpoint reports 503 with the underlying error.
+    Five cases share one graph. Every contract is built at startup (fast — no
+    LLM); the recommendation rationale is generated lazily on first view (see
+    _ensure_rationale) so boot stays quick and a slow/unreachable LLM provider
+    can't block it. If Neo4j is unreachable we still start (the UI/static layer
+    stays testable) but the case endpoints report 503 with the underlying error.
     """
-    app.state.contract = None
+    app.state.contracts = None
     app.state.error = None
     store.init_db()  # decisions/audit table — independent of Neo4j, so it's always ready
     driver = None
@@ -49,18 +54,11 @@ async def lifespan(app: FastAPI):
         driver = get_driver()
         driver.verify_connectivity()
         report = build_graph(driver)
-        contract = build_case_contract(driver, report)
-        # Fill the recommendation rationale with a server-side LLM call (Opus 4.8).
-        # generate_rationale never raises — it degrades to a deterministic summary.
-        text, source = generate_rationale(contract)
-        contract["recommendation"]["rationale"] = text
-        contract["recommendation"]["rationale_source"] = source
-        # Co-publish the selected model INSIDE the recommendation so /api/models
-        # and /api/case always read it from the same dict and can never disagree
-        # about which model is current. Startup uses the configured default.
-        _provider, _model, _ready, _ = providers.status()
-        contract["recommendation"]["model"] = _model if _ready else None
-        app.state.contract = contract
+        with open(DATA_DIR / "cases.csv", newline="", encoding="utf-8") as f:
+            cases = list(csv.DictReader(f))
+        app.state.contracts = {
+            c["case_id"]: build_case_contract(driver, report, c) for c in cases
+        }
     except Exception as exc:  # noqa: BLE001 — keep the app up; report 503 from endpoints
         # Full detail stays server-side (may contain hostnames/URIs); clients
         # only ever see a generic "graph not ready".
@@ -73,13 +71,40 @@ async def lifespan(app: FastAPI):
             driver.close()
 
 
+# Short timeout on the lazy/startup rationale path so an unreachable provider
+# degrades to the deterministic fallback fast; the interactive regenerate
+# endpoint uses a generous timeout instead (the analyst is actively waiting).
+_RATIONALE_TIMEOUT = 12.0
+
+
+def _ensure_rationale(contract: dict) -> None:
+    """Generate + cache the recommendation rationale on first access (lazy).
+
+    Kept out of startup so boot stays fast. Publishes atomically (a fresh
+    recommendation dict swapped in with one assignment), exactly like
+    regenerate_rationale, so readers never see a torn rationale/source pair.
+    """
+    rec = contract["recommendation"]
+    if rec.get("rationale_source") != "placeholder":
+        return
+    text, source = generate_rationale(contract, timeout=_RATIONALE_TIMEOUT)
+    _provider, model, ready, _ = providers.status()
+    new_rec = dict(rec)
+    new_rec["rationale"] = text
+    new_rec["rationale_source"] = source
+    new_rec["model"] = model if ready else None
+    contract["recommendation"] = new_rec
+
+
 app = FastAPI(title="A_NIRE Case Console", version="0.4.0", lifespan=lifespan)
 
 
 @app.get("/api/health")
 def health() -> dict:
     """Liveness + graph-readiness probe."""
-    return {"status": "ok", "slice": 4, "graph_ready": app.state.contract is not None}
+    contracts = app.state.contracts
+    return {"status": "ok", "slice": 4, "graph_ready": contracts is not None,
+            "cases": sorted(contracts) if contracts else []}
 
 
 @app.get("/api/models")
@@ -91,19 +116,16 @@ def list_models() -> dict:
     empty and the frontend hides the selector.
     """
     provider, default, ready, _reason = providers.status()
-    # `current` (the model behind the cached rationale) is read from the
-    # recommendation dict — co-published atomically with the rationale_source in
-    # one swap — so it can never skew against /api/case. Falls back to the
-    # configured default before the contract is ready.
-    current = default if ready else None
-    contract = app.state.contract
-    if contract is not None:
-        current = contract["recommendation"].get("model", current)
+    # `current` is the configured default model. The rationale model is now
+    # co-published per case inside each contract's recommendation (the frontend
+    # reads it from /api/case), since five cases can each be regenerated on a
+    # different model — so this global endpoint reports the default, not a single
+    # case's choice.
     return {
         "provider": provider,
         "ready": ready,
         "default": default if ready else None,
-        "current": current,
+        "current": default if ready else None,
         "models": providers.available_models() if ready else [],
     }
 
@@ -111,11 +133,8 @@ def list_models() -> dict:
 @app.get("/api/case/{case_id}")
 def get_case(case_id: str) -> dict:
     """Return the scored case contract built from the Neo4j graph."""
-    contract = app.state.contract
-    if contract is None:
-        raise HTTPException(status_code=503, detail="Graph not ready (see server logs)")
-    if case_id != contract["case"]["case_id"]:
-        raise HTTPException(status_code=404, detail=f"Unknown case '{case_id}'")
+    contract = _require_case(case_id)
+    _ensure_rationale(contract)  # generate the LLM rationale on first view (cached)
     return contract
 
 
@@ -128,10 +147,11 @@ class DecisionIn(BaseModel):
 
 
 def _require_case(case_id: str) -> dict:
-    contract = app.state.contract
-    if contract is None:
+    contracts = app.state.contracts
+    if contracts is None:
         raise HTTPException(status_code=503, detail="Graph not ready (see server logs)")
-    if case_id != contract["case"]["case_id"]:
+    contract = contracts.get(case_id)
+    if contract is None:
         raise HTTPException(status_code=404, detail=f"Unknown case '{case_id}'")
     return contract
 

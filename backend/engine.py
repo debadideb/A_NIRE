@@ -58,7 +58,8 @@ class RuleBasedEngine:
 
     Each fired detector contributes its configured weight; the total is the sum,
     banded by config.band(). Ignores `graph` (see module docstring on why it's
-    still in the signature). This MUST reproduce the acceptance total 0.74 -> SAR.
+    still in the signature). Reproduces the documented per-case acceptance totals
+    (see CLAUDE.md) deterministically from config.DETECTOR_WEIGHTS.
     """
 
     name = "rule_based_v1"
@@ -69,7 +70,10 @@ class RuleBasedEngine:
             for d in detectors
             if d["fired"]
         }
-        total = round(sum(components.values()), 2)
+        # A case that trips several typologies can sum past 1.0; a risk score is
+        # a 0-1 quantity, so cap the total (the band is SAR either way). Individual
+        # contributions are still reported unclamped in `components`.
+        total = round(min(1.0, sum(components.values())), 2)
         return ScoreResult(
             engine_name=self.name,
             total=total,

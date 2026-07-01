@@ -23,6 +23,8 @@ function edgeColor(category: GraphEdge['category']): string {
   if (category === 'circular') return '#f97316';
   if (category === 'sanctioned') return '#ef4444';
   if (category === 'shell') return '#f59e0b';
+  if (category === 'high_risk') return '#d946ef';
+  if (category === 'structuring') return '#2dd4bf';
   return '#94a3b8';
 }
 
@@ -484,6 +486,8 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
           { color: '#f97316', label: 'Circular flow' },
           { color: '#ef4444', label: 'Sanctioned' },
           { color: '#f59e0b', label: 'Shell linkage' },
+          { color: '#d946ef', label: 'High-risk outbound' },
+          { color: '#2dd4bf', label: 'Structuring' },
           { color: '#94a3b8', label: 'Normal flow' },
         ].map(item => (
           <div key={item.label} className="flex items-center gap-2">

@@ -1,86 +1,39 @@
 """Detectors (in Cypher), rule-based scoring, and contract assembly.
 
-Three detectors run over the built graph:
-  * circular_flow      — a closed :SENT loop of length >= 3 through the subject
-  * sanctioned_exposure— subject reaches a :Sanctioned node within a few hops
-  * shell_linkage      — subject funds a cluster of >= 2 :Shell entities
+Five detectors run over the built graph, each scoped to one case subject's
+ego-network (every :SENT edge carrying that subject_id):
+
+  * sanctioned_exposure — subject sends to a :Sanctioned counterparty
+  * high_risk_outbound  — many high-value debits to high-risk jurisdictions
+  * structuring         — many debits just under a reporting threshold to one cp
+  * circular_flow       — matched reciprocal round-trips (send £X, get £~X back)
+  * shell_linkage       — subject funds >=N offshore cps sharing a beneficial owner
 
 Detectors here emit pure *evidence* (which patterns fired, over which entities/
-txns) and carry NO score. Turning that evidence into a total + band + per-detector
-contributions is the job of a pluggable scoring engine (engine.py), selected by
-config.SCORING_ENGINE; build_case_contract() calls it and merges the contributions
-back onto the detector list. The contract emitted is the SAME shape slice 1
-hardcoded, so the frontend, recommendation, and audit layers do not change. Node
-flags/role and edge patterns are DERIVED from graph labels + detector output —
-never hand-labelled.
+txns, with a plain-language explanation) and carry NO score. Turning evidence
+into a total + band + per-detector contributions is the job of a pluggable
+scoring engine (engine.py), selected by config.SCORING_ENGINE. Node roles/flags
+and edge patterns are DERIVED from graph labels + detector output — never
+hand-labelled in the data.
 """
 
 import csv
 
+import config
 from config import DATA_DIR
 from engine import get_engine
 from graphdb import DB
 
-# --- Cypher ---------------------------------------------------------------
-
-# Closed loop of >=3 SENT hops back to the subject. *3.. excludes 2-cycles /
-# back-and-forth; shortest qualifying loop is returned.
-_CIRCULAR = """
-MATCH path = (s:Subject)-[:SENT*3..8]->(s)
-RETURN [n IN nodes(path) | n.entity_id]      AS ents,
-       [r IN relationships(path) | r.txn_id] AS txns,
-       [r IN relationships(path) | r.amount_gbp] AS amounts
-ORDER BY size(txns)
-LIMIT 1
-"""
-
-# Shortest directed path from the subject to any sanctioned counterparty.
-_SANCTIONED = """
-MATCH path = shortestPath((s:Subject)-[:SENT*1..4]->(t:Sanctioned))
-RETURN [n IN nodes(path) | n.entity_id]      AS ents,
-       [r IN relationships(path) | r.txn_id] AS txns,
-       t.entity_id     AS sanctioned_id,
-       t.screened_name AS screened,
-       t.sanction_list AS list,
-       t.sanction_match AS match
-LIMIT 1
-"""
-
-# Subject funds a shell cluster. Anchor on the registered address(es) the
-# subject actually funds INTO, then take only shells at that same address and
-# the SENT edges among subject + that anchored cluster. This stops an unrelated
-# shell cluster (not subject-funded) from being pulled into the detector.
-_SHELL = """
-MATCH (s:Subject)-[:SENT]->(entry:Shell)
-WITH collect(DISTINCT toLower(trim(entry.registered_address))) AS funded_addrs
-MATCH (sh:Shell)
-WHERE toLower(trim(sh.registered_address)) IN funded_addrs
-WITH collect(DISTINCT sh.entity_id) AS shells
-WHERE size(shells) >= 2
-MATCH (a:Entity)-[r:SENT]->(b:Entity)
-WHERE (a.entity_id IN shells OR b.entity_id IN shells)
-  AND (a:Subject OR a.entity_id IN shells)
-  AND (b:Subject OR b.entity_id IN shells)
-RETURN shells AS ents, collect(DISTINCT r.txn_id) AS txns
-"""
-
-# Address of a specific (already-detected) shell, for the explanation text.
-_SHELL_ADDR = "MATCH (sh:Entity {entity_id: $sid}) RETURN sh.registered_address AS addr"
-
-_NODES = """
-MATCH (e:Entity)
-RETURN e.entity_id AS id, e.name AS label, e.type AS type,
-       e.jurisdiction AS jurisdiction, e.kyc_status AS kyc_status,
-       labels(e) AS labels
-ORDER BY e.entity_id
-"""
-
-_EDGES = """
-MATCH (a:Entity)-[r:SENT]->(b:Entity)
-RETURN r.txn_id AS id, a.entity_id AS source, b.entity_id AS target,
-       r.amount_gbp AS amount_gbp, r.txn_date AS txn_date, r.channel AS channel
-ORDER BY r.txn_id
-"""
+# Detector key -> the edge/factor "pattern" category the frontend colours by,
+# in descending severity (used to pick one pattern when a cp is in several).
+PATTERN = {
+    "sanctioned_exposure": "sanctioned",
+    "circular_flow": "circular",
+    "shell_linkage": "shell",
+    "high_risk_outbound": "high_risk",
+    "structuring": "structuring",
+}
+_SEVERITY = list(PATTERN.keys())  # order = severity
 
 
 def _records(driver, cypher, **params) -> list[dict]:
@@ -88,197 +41,298 @@ def _records(driver, cypher, **params) -> list[dict]:
 
 
 def _gbp(n) -> str:
-    return f"£{int(n):,}"
-
-
-# --- Detectors ------------------------------------------------------------
-
-def run_detectors(driver) -> list[dict]:
-    """Run all three detectors; return one result dict each (worst weight first)."""
-    results = []
-
-    # Circular flow
-    rows = _records(driver, _CIRCULAR)
-    if rows:
-        ents = rows[0]["ents"]
-        if len(ents) > 1 and ents[0] == ents[-1]:
-            ents = ents[:-1]                      # drop the closing duplicate
-        txns = rows[0]["txns"]
-        amounts = rows[0]["amounts"]
-        loop = "→".join(ents + [ents[0]])
-        results.append(_result(
-            "circular_flow", "Circular flow", True, ents, txns,
-            f"Funds left the subject and returned through a closed loop {loop} "
-            f"({_gbp(amounts[0])} out, {_gbp(amounts[-1])} back), a classic "
-            f"layering signature. Cycle length {len(ents)} (≥3).",
-        ))
-    else:
-        results.append(_result("circular_flow", "Circular flow", False, [], [],
-                               "No closed loop of length ≥3 through the subject."))
-
-    # Sanctioned exposure
-    rows = _records(driver, _SANCTIONED)
-    if rows:
-        r = rows[0]
-        ents, txns = r["ents"], r["txns"]
-        results.append(_result(
-            "sanctioned_exposure", "Sanctioned exposure", True, ents, txns,
-            f"The subject is {len(txns)} hop(s) from a sanctioned counterparty: "
-            f"{'→'.join(ents)} — {r['sanctioned_id']} ({r['screened']}) is a "
-            f"{r['list']} World-Check hit at match strength {r['match']}.",
-        ))
-    else:
-        results.append(_result("sanctioned_exposure", "Sanctioned exposure", False, [], [],
-                               "No path from the subject to a sanctioned node."))
-
-    # Shell linkage
-    rows = _records(driver, _SHELL)
-    if rows:
-        ents, txns = rows[0]["ents"], rows[0]["txns"]
-        addr_rows = _records(driver, _SHELL_ADDR, sid=ents[0])
-        addr = addr_rows[0]["addr"] if addr_rows else "a shared address"
-        results.append(_result(
-            "shell_linkage", "Shell linkage", True, ents, txns,
-            f"The subject funds a cluster of {len(ents)} nominee-managed companies "
-            f"({', '.join(ents)}) that all share one registered address ({addr}) "
-            f"— a shell-company pattern.",
-        ))
-    else:
-        results.append(_result("shell_linkage", "Shell linkage", False, [], [],
-                               "No subject-funded cluster of ≥2 shells."))
-
-    return results
+    return f"£{int(round(n or 0)):,}"
 
 
 def _result(key, name, fired, entities, txns, explanation) -> dict:
-    # Pure evidence: no score here. The scoring engine owns `contribution`, which
+    # Pure evidence: no score here. The engine owns `contribution`, which
     # build_case_contract merges back on after scoring.
-    return {
-        "key": key,
-        "name": name,
-        "fired": fired,
-        "entities": entities,
-        "txns": txns,
-        "explanation": explanation,
-    }
+    return {"key": key, "name": name, "fired": fired,
+            "entities": entities, "txns": txns, "explanation": explanation}
 
 
-# --- Contract assembly ----------------------------------------------------
+# --- Detectors (all scoped to $sid; edges carry subject_id) ------------------
 
-def _case_meta() -> dict:
-    with open(DATA_DIR / "cases.csv", newline="", encoding="utf-8") as f:
-        c = next(csv.DictReader(f))
-    return {
-        "case_id": c["case_id"],
-        "subject_entity_id": c["subject_entity_id"],
-        "trigger_code": c["trigger_code"],
-        "trigger_desc": c["trigger_desc"],
-        "created_at": c["created_at"],
-    }
+def run_detectors(driver, sid: str) -> list[dict]:
+    """Run all five detectors for one subject; return one result dict each."""
+    return [
+        _sanctioned(driver, sid),
+        _circular(driver, sid),
+        _shell(driver, sid),
+        _high_risk_outbound(driver, sid),
+        _structuring(driver, sid),
+    ]
 
 
-def _role(node_id, flags, circular_ents, sanctioned_ents) -> str:
+def _sanctioned(driver, sid) -> dict:
+    rows = _records(driver, """
+        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(t:Sanctioned)
+        RETURN collect(DISTINCT t.entity_id) AS ids,
+               collect(DISTINCT t.screened_name) AS names,
+               collect(DISTINCT t.sanction_list) AS lists,
+               max(t.sanction_match) AS score, sum(r.amount) AS total,
+               count(r) AS n, collect(r.key)[..80] AS txns
+    """, sid=sid)
+    r = rows[0] if rows else {}
+    ids = r.get("ids") or []
+    if ids:
+        return _result(
+            "sanctioned_exposure", "Sanctioned exposure", True, [sid] + ids, r["txns"],
+            f"The subject sent {_gbp(r['total'])} across {r['n']} transaction(s) to "
+            f"{len(ids)} sanctioned counterparty(ies) — {', '.join(r['names'])} "
+            f"({', '.join(l for l in r['lists'] if l)} hit, match score {int(r['score'])}).",
+        )
+    return _result("sanctioned_exposure", "Sanctioned exposure", False, [], [],
+                   "No payments from the subject to a sanctioned counterparty.")
+
+
+def _high_risk_outbound(driver, sid) -> dict:
+    rows = _records(driver, """
+        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
+        WHERE r.amount >= $hv AND r.benef_country IN $hr
+        RETURN count(r) AS n, sum(r.amount) AS total,
+               collect(DISTINCT c.entity_id) AS cps,
+               collect(DISTINCT r.benef_country) AS countries,
+               collect(r.key)[..80] AS txns
+    """, sid=sid, hv=config.HIGH_VALUE_GBP, hr=list(config.HIGH_RISK_JURISDICTIONS))
+    r = rows[0] if rows else {}
+    n = r.get("n") or 0
+    if n >= config.HIGH_RISK_OUTBOUND_MIN_COUNT:
+        return _result(
+            "high_risk_outbound", "High-risk outbound", True, [sid] + r["cps"], r["txns"],
+            f"{n} high-value debits totalling {_gbp(r['total'])} left the subject to "
+            f"high-risk jurisdictions ({', '.join(sorted(r['countries']))}), each at or "
+            f"above {_gbp(config.HIGH_VALUE_GBP)}.",
+        )
+    return _result("high_risk_outbound", "High-risk outbound", False, [], [],
+                   f"Fewer than {config.HIGH_RISK_OUTBOUND_MIN_COUNT} high-value debits to high-risk jurisdictions.")
+
+
+def _structuring(driver, sid) -> dict:
+    lo, hi = config.STRUCTURING_BAND
+    rows = _records(driver, """
+        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
+        WHERE r.amount >= $lo AND r.amount < $hi
+        WITH c, count(r) AS cnt, sum(r.amount) AS tot, collect(r.key) AS keys,
+             max(r.day) - min(r.day) AS span
+        WHERE cnt >= $minc AND span <= $win
+        RETURN collect(c.entity_id) AS cps, sum(cnt) AS n, sum(tot) AS total,
+               reduce(a=[], k IN collect(keys) | a + k)[..80] AS txns
+    """, sid=sid, lo=lo, hi=hi, minc=config.STRUCTURING_MIN_COUNT,
+         win=config.STRUCTURING_WINDOW_DAYS)
+    r = rows[0] if rows else {}
+    cps = r.get("cps") or []
+    if cps:
+        return _result(
+            "structuring", "Structuring", True, [sid] + cps, r["txns"],
+            f"{r['n']} debits of {_gbp(lo)}–{_gbp(hi)} (just under the reporting threshold) "
+            f"went to {len(cps)} counterparty(ies) totalling {_gbp(r['total'])} — a smurfing "
+            f"/ structuring signature.",
+        )
+    return _result("structuring", "Structuring", False, [], [],
+                   f"No counterparty received >= {config.STRUCTURING_MIN_COUNT} near-threshold debits.")
+
+
+def _circular(driver, sid) -> dict:
+    # n counts distinct OUTBOUND legs that were returned within tolerance/window
+    # (each `out` collapsed once via WITH c, out). A single credit could in theory
+    # answer several debits, but the tight tol (2%) + 5-day window keep background
+    # coincidences in single digits (measured), while a real loop yields >100 — so
+    # min-count 10 separates cleanly without needing strict one-to-one pairing.
+    rows = _records(driver, """
+        MATCH (s:Entity {entity_id:$sid})-[out:SENT {subject_id:$sid, direction:'D'}]->(c)
+        MATCH (c)-[back:SENT {subject_id:$sid, direction:'C'}]->(s)
+        WHERE back.day >= out.day AND back.day - out.day <= $win
+          AND abs(out.amount - back.amount) <= $tol * out.amount
+        WITH c, out, min(back.day - out.day) AS lag, collect(back.key)[0] AS back_key
+        RETURN count(*) AS n, sum(out.amount) AS total,
+               collect(DISTINCT c.entity_id) AS cps,
+               (collect(out.key) + collect(back_key))[..80] AS txns
+    """, sid=sid, win=config.ROUNDTRIP_WINDOW_DAYS, tol=config.ROUNDTRIP_TOLERANCE)
+    r = rows[0] if rows else {}
+    n = r.get("n") or 0
+    if n >= config.CIRCULAR_MIN_COUNT:
+        return _result(
+            "circular_flow", "Circular flow", True, [sid] + r["cps"], r["txns"],
+            f"{n} matched round-trips ({_gbp(r['total'])} sent and returned within "
+            f"{config.ROUNDTRIP_WINDOW_DAYS} days at ~the same amount) across {len(r['cps'])} "
+            f"counterparty(ies) — a layering / circular fund-flow signature.",
+        )
+    return _result("circular_flow", "Circular flow", False, [], [],
+                   f"Fewer than {config.CIRCULAR_MIN_COUNT} matched reciprocal round-trips.")
+
+
+def _shell(driver, sid) -> dict:
+    rows = _records(driver, """
+        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
+        WHERE c.jurisdiction IN $off AND c.beneficial_owner <> ''
+        WITH c.beneficial_owner AS bo, collect(DISTINCT c.entity_id) AS cps,
+             sum(r.amount) AS tot, collect(r.key) AS keys
+        WHERE size(cps) >= $minc
+        RETURN reduce(a=[], x IN collect(cps) | a + x) AS ents,
+               collect(bo) AS bos, sum(tot) AS total,
+               reduce(a=[], k IN collect(keys) | a + k)[..80] AS txns
+    """, sid=sid, off=list(config.OFFSHORE_JURISDICTIONS), minc=config.SHELL_MIN_CLUSTER)
+    r = rows[0] if rows else {}
+    ents = r.get("ents") or []
+    if ents:
+        return _result(
+            "shell_linkage", "Shell linkage", True, [sid] + ents, r["txns"],
+            f"The subject funds {len(ents)} offshore companies ({', '.join(ents)}) that share "
+            f"a beneficial owner ({', '.join(r['bos'])}) and are incorporated in secrecy "
+            f"jurisdictions — a shell-company cluster ({_gbp(r['total'])} funded).",
+        )
+    return _result("shell_linkage", "Shell linkage", False, [], [],
+                   f"No subject-funded cluster of >= {config.SHELL_MIN_CLUSTER} offshore shells sharing an owner.")
+
+
+# --- Graph queries (subject ego-network) ------------------------------------
+
+_NODES = """
+MATCH (s:Entity {entity_id:$sid})
+OPTIONAL MATCH (s)-[:SENT {subject_id:$sid}]-(c)
+WITH s, collect(DISTINCT c) AS cps
+UNWIND ([s] + cps) AS e
+RETURN DISTINCT e.entity_id AS id, e.name AS label, e.type AS type,
+       e.jurisdiction AS jurisdiction, e.kyc_risk_rating AS kyc_risk,
+       e.beneficial_owner AS beneficial_owner, e.pep_flag AS pep_flag,
+       labels(e) AS labels
+ORDER BY id
+"""
+
+# Aggregate the subject's transactions into one edge per (source, target,
+# direction) so the graph stays legible (per-txn detail lives in the CSVs).
+_EDGES = """
+MATCH (a:Entity)-[r:SENT {subject_id:$sid}]->(b:Entity)
+WITH a.entity_id AS source, b.entity_id AS target, r.direction AS direction,
+     sum(r.amount) AS amount, count(r) AS cnt,
+     collect(DISTINCT r.channel) AS channels, max(r.txn_date) AS last_date,
+     collect(r.key)[..8] AS keys
+RETURN source, target, direction, amount, cnt, channels, last_date, keys
+ORDER BY amount DESC
+"""
+
+
+def _role(node_id, flags, ent_sets) -> str:
     if flags["subject"]:
         return "subject"
     if flags["sanctioned"]:
         return "sanctioned"
     if flags["shell"]:
         return "shell"
-    if node_id in circular_ents:
+    if node_id in ent_sets["circular_flow"]:
         return "layering"
-    if node_id in sanctioned_ents:
+    if node_id in ent_sets["high_risk_outbound"] or node_id in ent_sets["sanctioned_exposure"]:
+        return "intermediary"
+    if node_id in ent_sets["structuring"]:
         return "intermediary"
     return "counterparty"
 
 
-def build_case_contract(driver, build_report: dict) -> dict:
-    """Assemble the full case contract from the graph + detector results."""
-    detectors = run_detectors(driver)
+def build_case_contract(driver, build_report: dict, case: dict) -> dict:
+    """Assemble one case's contract from the graph + detector results.
+
+    `case` is a row from cases.csv (case_id + subject_id + metadata).
+    """
+    sid = case["subject_id"]
+    detectors = run_detectors(driver, sid)
     by_key = {d["key"]: d for d in detectors}
+    ent_sets = {k: set(by_key[k]["entities"]) for k in PATTERN}
 
-    circular_ents = set(by_key["circular_flow"]["entities"])
-    sanctioned_ents = set(by_key["sanctioned_exposure"]["entities"])
-
-    # Map each txn id to the (single) detector pattern it belongs to.
-    txn_pattern = {}
-    for key, pat in (("circular_flow", "circular"),
-                     ("sanctioned_exposure", "sanctioned"),
-                     ("shell_linkage", "shell")):
-        for t in by_key[key]["txns"]:
-            txn_pattern.setdefault(t, pat)
+    # counterparty -> its highest-severity fired pattern (for edge colouring).
+    cp_pattern: dict[str, str] = {}
+    for key in _SEVERITY:
+        if by_key[key]["fired"]:
+            for eid in by_key[key]["entities"]:
+                if eid != sid:
+                    cp_pattern.setdefault(eid, PATTERN[key])
 
     # Nodes
     nodes = []
-    kyc_by_id = {}
-    for n in _records(driver, _NODES):
+    for n in _records(driver, _NODES, sid=sid):
         labels = set(n["labels"])
         flags = {
-            "subject": "Subject" in labels,
+            "subject": n["id"] == sid,
             "sanctioned": "Sanctioned" in labels,
-            "shell": "Shell" in labels,
+            # Shell applies to the funded cluster members, never the subject
+            # itself (the shell detector's entity set is [subject] + cluster).
+            "shell": n["id"] != sid and n["id"] in ent_sets["shell_linkage"],
         }
-        kyc_by_id[n["id"]] = n["kyc_status"]
         nodes.append({
             "id": n["id"],
             "label": n["label"],
             "type": n["type"],
             "jurisdiction": n["jurisdiction"],
-            "kyc_status": n["kyc_status"],
-            "role": _role(n["id"], flags, circular_ents, sanctioned_ents),
+            "kyc_status": n["kyc_risk"],          # hover shows KYC risk rating now
+            "beneficial_owner": n["beneficial_owner"],
+            "pep_flag": n["pep_flag"],
+            "role": _role(n["id"], flags, ent_sets),
             "flags": flags,
         })
 
-    # Edges
-    edges = [{
-        "id": e["id"],
-        "source": e["source"],
-        "target": e["target"],
-        "amount_gbp": e["amount_gbp"],
-        "txn_date": e["txn_date"],
-        "channel": e["channel"],
-        "pattern": txn_pattern.get(e["id"]),
-    } for e in _records(driver, _EDGES)]
+    # Edges (aggregated) — pattern from the non-subject endpoint's fired detector.
+    edges = []
+    for e in _records(driver, _EDGES, sid=sid):
+        cp = e["target"] if e["source"] == sid else e["source"]
+        edges.append({
+            "id": f"{e['source']}->{e['target']}",
+            "source": e["source"],
+            "target": e["target"],
+            "amount_gbp": round(e["amount"], 2),
+            "txn_date": e["last_date"],
+            "channel": ", ".join(e["channels"][:3]),
+            "count": e["cnt"],
+            "txn_ids": e["keys"],           # sample of underlying txn keys (capped)
+            "pattern": cp_pattern.get(cp),
+        })
 
-    # Score via the configured engine (detectors are pure evidence). The graph is
-    # passed for engines that want topology; the rule-based engine ignores it.
+    # Score via the configured engine (detectors are pure evidence).
     result = get_engine().score(detectors, {"nodes": nodes, "edges": edges})
-    # Merge the engine's per-detector contributions back onto the evidence list,
-    # so each detector in the contract carries its share (0.0 if it didn't fire).
     for d in detectors:
         d["contribution"] = result.components.get(d["key"], 0.0)
-    total = result.total
-    the_band = result.band
 
     # Source-integration badges (derived counts).
-    layering_chain = any(kyc_by_id.get(eid) == "thin_file" for eid in circular_ents)
-    kyc_clusters = (1 if by_key["shell_linkage"]["fired"] else 0) + (1 if layering_chain else 0)
     oon = build_report["out_of_network"]
+    fired = {d["key"]: d for d in detectors if d["fired"]}
     sources = [
-        {"key": "world_check", "label": "World-Check", "count": len(build_report["sanctioned"]),
+        {"key": "world_check", "label": "World-Check",
+         "count": len(fired.get("sanctioned_exposure", {}).get("entities", [])[1:]),
          "detail": "in-network sanctions hit(s) → derives :Sanctioned"},
-        {"key": "tm", "label": "TM", "count": len(by_key["circular_flow"]["txns"]),
-         "detail": "transaction-monitoring legs in the circular flow"},
-        {"key": "kyc", "label": "KYC", "count": kyc_clusters,
-         "detail": "KYC-derived risk clusters (nominee shells + thin-file layering chain)"},
+        {"key": "tm", "label": "TM",
+         "count": sum(len(fired[k]["txns"]) for k in ("circular_flow", "high_risk_outbound", "structuring") if k in fired),
+         "detail": "transaction-monitoring legs across the fired flow detectors"},
+        {"key": "kyc", "label": "KYC",
+         "count": (1 if "shell_linkage" in fired else 0),
+         "detail": "KYC-derived risk clusters (offshore shell linkage)"},
         {"key": "watchlist", "label": "Watchlist", "count": 0,
          "detail": f"{len(oon['watchlist'])} screening row(s) but 0 in-network (out-of-network)"},
     ]
 
     fired_names = [d["name"].lower() for d in detectors if d["fired"]]
-    case = _case_meta()
-    case["subject_name"] = next((n["label"] for n in nodes if n["flags"]["subject"]), None)
+    case_block = {
+        "case_id": case["case_id"],
+        "subject_entity_id": sid,
+        "subject_name": case["subject_name"],
+        "trigger_code": case.get("alert_type", ""),
+        "trigger_desc": case.get("trigger_reason", ""),
+        "created_at": case.get("alert_date", ""),
+        "status": case.get("case_status", ""),
+        "analyst": case.get("assigned_analyst", ""),
+        "priority": case.get("priority", ""),
+        "jurisdiction": case.get("jurisdiction", ""),
+    }
     return {
-        "case": case,
+        "case": case_block,
         "graph": {"nodes": nodes, "edges": edges},
         "detectors": detectors,
-        "score": {"total": total, "band": the_band, "bands": result.bands,
+        "score": {"total": result.total, "band": result.band, "bands": result.bands,
                   "engine": result.engine_name},
         "recommendation": {
-            "action": the_band,
-            "headline": _headline(the_band),
+            "action": result.band,
+            "headline": _headline(result.band),
             "rationale": (
-                "PLACEHOLDER rationale (LLM-generated text arrives in slice 3). "
-                f"Score {total} -> {the_band}"
+                "PLACEHOLDER rationale (LLM-generated text fills in at startup). "
+                f"Score {result.total} -> {result.band}"
                 + (f", driven by {', '.join(fired_names)}." if fired_names else ".")
             ),
             "rationale_source": "placeholder",
@@ -300,15 +354,9 @@ def _headline(the_band: str) -> str:
 def contribution_shares(edges: list[dict], reference_id: str) -> dict[str, dict]:
     """Each edge's share of `reference_id`'s money flow, with its direction.
 
-    The single server-side definition of "contribution %": for the reference
-    entity, debit = Σ amounts it SENT (outflows) and credit = Σ amounts it
-    RECEIVED (inflows); an edge's share is its amount over the matching base.
-    Outflows are "debit", inflows "credit". Returns {edge_id: {"pct", "direction"}}
-    for every edge that touches the reference (others are omitted; a base of 0
-    yields no entry). The entity endpoint calls this with the queried entity; the
-    main-graph slider and the modal will adopt the SAME helper (reference = the
-    subject) during frontend wiring — so contribution % has one server-side
-    definition rather than one per UI surface.
+    debit = Σ amounts the reference SENT; credit = Σ it RECEIVED; an edge's share
+    is its amount over the matching base. Returns {edge_id: {"pct", "direction"}}
+    for every edge that touches the reference.
     """
     debit = sum(e["amount_gbp"] for e in edges if e["source"] == reference_id)
     credit = sum(e["amount_gbp"] for e in edges if e["target"] == reference_id)
@@ -324,7 +372,6 @@ def contribution_shares(edges: list[dict], reference_id: str) -> dict[str, dict]
 # --- Entity detail (backs the double-click modal) ---------------------------
 
 def _csv_by_id(name: str) -> dict[str, dict]:
-    """Index a data CSV by its entity_id column."""
     with open(DATA_DIR / name, newline="", encoding="utf-8") as f:
         return {r["entity_id"]: r for r in csv.DictReader(f)}
 
@@ -332,15 +379,9 @@ def _csv_by_id(name: str) -> dict[str, dict]:
 def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
     """Assemble {kyc, worldcheck|null, risky_paths[]} for one entity.
 
-    No new data: a join over kyc.csv + worldcheck.csv + the already-scored
-    contract (whose edges carry the per-txn detector pattern). Returns None when
-    the entity has no KYC row, which the route turns into a 404.
-
-    risky_paths = every fired-detector transaction that touches the entity, BOTH
-    directions (sent and received), aggregated per (counterparty, direction):
-    summed amount, the txn ids, the detector reason(s), and the entity-relative
-    contribution % from the shared helper. Clean parties touch no fired txn, so
-    their list is empty.
+    A join over kyc.csv + worldcheck.csv + the already-scored contract (whose
+    aggregated edges carry the per-counterparty detector pattern). Returns None
+    when the entity has no KYC row (route -> 404).
     """
     kyc_row = _csv_by_id("kyc.csv").get(entity_id)
     if kyc_row is None:
@@ -349,68 +390,52 @@ def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
 
     kyc = {
         "entity_id": kyc_row["entity_id"],
-        "name": kyc_row["name"],
+        "name": kyc_row["entity_name"],
         "entity_type": kyc_row["entity_type"],
-        "jurisdiction": kyc_row["jurisdiction"],
-        "incorporation_year": (int(kyc_row["incorporation_year"])
-                               if kyc_row["incorporation_year"] else None),
-        "kyc_status": kyc_row["kyc_status"],
-        "registered_address": kyc_row["registered_address"] or None,
+        "jurisdiction": kyc_row["incorporation_country"],
+        "incorporation_date": kyc_row["incorporation_date"] or None,
+        "industry": kyc_row["industry"],
+        "beneficial_owner": kyc_row["beneficial_owner"] or None,
+        "kyc_risk_rating": kyc_row["kyc_risk_rating"],
+        "pep_flag": kyc_row["pep_flag"],
     }
     worldcheck = {
         "entity_id": wc_row["entity_id"],
-        "source": wc_row["source"],
-        "list_name": wc_row["list_name"],
-        "category": wc_row["category"],
-        "match_strength": float(wc_row["match_strength"]),
-        "hit_date": wc_row["hit_date"],
-        "screened_name": wc_row["screened_name"],
+        "match_category": wc_row["match_category"],
+        "watchlist_source": wc_row["watchlist_source"],
+        "match_status": wc_row["match_status"],
+        "match_score": float(wc_row["match_score"]),
+        "severity": wc_row["severity"],
+        "screened_name": wc_row["entity_name"],
     } if wc_row else None
 
-    # Which txns are risky, and why. Collect ALL fired-detector names per txn (not
-    # just the first) so a txn caught by two detectors keeps both reasons — the
-    # endpoint promises the detector reason(s), so none may be dropped.
-    reason_by_txn: dict[str, set[str]] = {}
-    for d in contract["detectors"]:
-        if d["fired"]:
-            for t in d["txns"]:
-                reason_by_txn.setdefault(t, set()).add(d["name"])
+    # Which detector name(s) does the entity participate in?
+    reasons = sorted({d["name"] for d in contract["detectors"]
+                      if d["fired"] and entity_id in d["entities"]})
 
+    # Risky paths = the entity's flows that belong to a FIRED detector only (an
+    # edge with a pattern). Clean counterparties touch no fired pattern, so their
+    # list is empty — the modal then shows "no fired-detector transactions".
     edges = contract["graph"]["edges"]
-    shares = contribution_shares(edges, entity_id)  # direction + % from one source
-
-    # Aggregate per (counterparty, direction). Keying on direction too stays sound
-    # even if an entity both sent to and received from the same counterparty (the
-    # synthetic data has no such 2-cycle, but the rule must not mix the two).
-    agg: dict[tuple, dict] = {}
+    shares = contribution_shares(edges, entity_id)
+    risky_paths = []
     for e in edges:
-        if e["id"] not in reason_by_txn:
+        if e["pattern"] is None or entity_id not in (e["source"], e["target"]):
             continue
         sh = shares.get(e["id"])
-        if sh is None:                       # edge doesn't touch this entity
-            continue
-        direction = sh["direction"]
-        counterparty = e["target"] if direction == "debit" else e["source"]
-        row = agg.setdefault((counterparty, direction), {
+        counterparty = e["target"] if e["source"] == entity_id else e["source"]
+        risky_paths.append({
             "counterparty": counterparty,
-            "direction": direction,
-            "reason": set(),
-            "txn_ids": [],
-            "amount": 0,
+            "direction": sh["direction"] if sh else "debit",
+            "reason": ", ".join(reasons),
+            "txn_ids": e["txn_ids"],
+            "txn_count": e["count"],
+            "amount": e["amount_gbp"],
             "currency": "GBP",
-            "contribution_pct": 0.0,
+            "contribution_pct": round(sh["pct"], 1) if sh else 0.0,
+            "pattern": e["pattern"],
         })
-        row["txn_ids"].append(e["id"])
-        row["amount"] += e["amount_gbp"]
-        row["reason"].update(reason_by_txn[e["id"]])
-        row["contribution_pct"] += sh["pct"]
-
-    risky_paths = []
-    for row in agg.values():
-        row["reason"] = ", ".join(sorted(row["reason"]))
-        row["contribution_pct"] = round(row["contribution_pct"], 1)
-        risky_paths.append(row)
-    risky_paths.sort(key=lambda r: r["contribution_pct"], reverse=True)  # worst first
+    risky_paths.sort(key=lambda r: r["contribution_pct"], reverse=True)
 
     return {"entity_id": entity_id, "kyc": kyc,
             "worldcheck": worldcheck, "risky_paths": risky_paths}
