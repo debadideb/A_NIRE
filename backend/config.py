@@ -48,8 +48,11 @@ HIGH_RISK_OUTBOUND_MIN_COUNT = 10
 STRUCTURING_BAND = (8_000, 10_000)
 STRUCTURING_MIN_COUNT = 15
 # circular_flow: matched reciprocal round-trips (send £X, get £~X back soon).
-ROUNDTRIP_TOLERANCE = 0.05          # |sent-returned| / sent
-ROUNDTRIP_WINDOW_DAYS = 7
+# tol/window are tight enough that only genuinely-matched pairs qualify — random
+# debit/credit coincidences in the background stay in single digits (measured),
+# while a real layering loop produces >100, so min-count 10 separates cleanly.
+ROUNDTRIP_TOLERANCE = 0.02          # |sent-returned| / sent
+ROUNDTRIP_WINDOW_DAYS = 5
 CIRCULAR_MIN_COUNT = 10
 # shell_linkage: subject funds >= this many offshore cps sharing a beneficial owner.
 SHELL_MIN_CLUSTER = 3

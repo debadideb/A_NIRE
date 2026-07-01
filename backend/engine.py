@@ -58,7 +58,8 @@ class RuleBasedEngine:
 
     Each fired detector contributes its configured weight; the total is the sum,
     banded by config.band(). Ignores `graph` (see module docstring on why it's
-    still in the signature). This MUST reproduce the acceptance total 0.74 -> SAR.
+    still in the signature). Reproduces the documented per-case acceptance totals
+    (see CLAUDE.md) deterministically from config.DETECTOR_WEIGHTS.
     """
 
     name = "rule_based_v1"
