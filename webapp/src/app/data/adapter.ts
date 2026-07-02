@@ -31,13 +31,16 @@ export function gbpCompact(n: number): string {
 // ── node classification ─────────────────────────────────────────────────────
 function nodeType(n: ContractNode): NodeType {
   if (n.flags.subject) return 'main';
+  // A counterparty that is itself the subject of another case stands out on its
+  // own — even over sanctioned/shell (in this data a peer subject is neither).
+  if (n.flags.peer_subject) return 'peer_subject';
   if (n.flags.sanctioned) return 'sanctioned';
   if (n.flags.shell) return 'shell';
   return 'entity';
 }
 
 function nodeRisk(n: ContractNode): RiskLevel {
-  if (n.flags.subject || n.flags.sanctioned || n.flags.shell) return 'high';
+  if (n.flags.subject || n.flags.sanctioned || n.flags.shell || n.flags.peer_subject) return 'high';
   if (n.role === 'layering' || n.role === 'intermediary') return 'medium';
   return 'low'; // clean / plain counterparty — rendered muted
 }
@@ -151,12 +154,18 @@ const FACTOR_CATEGORY: Record<string, RiskCategory> = {
   structuring: 'structuring',
 };
 
-export function contractToAMLCase(c: CaseContract): AMLCase {
-  const subjectId = c.case.subject_entity_id;
-  const pos = computePositions(c.graph.nodes, c.graph.edges, subjectId);
-  const rad = radii(c.graph.nodes, c.graph.edges, subjectId);
+// ── graph transform (nodes + edges only) ────────────────────────────────────
+// Split out so the duration control can refresh JUST the graph (fetch a windowed
+// {nodes, edges} and re-run this) without rebuilding the whole AMLCase — the
+// score/recommendation/riskFactors are unaffected by a view window.
+export function graphToViewModel(
+  graph: { nodes: ContractNode[]; edges: ContractEdge[] },
+  subjectId: string,
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const pos = computePositions(graph.nodes, graph.edges, subjectId);
+  const rad = radii(graph.nodes, graph.edges, subjectId);
 
-  const nodes: GraphNode[] = c.graph.nodes.map((n) => {
+  const nodes: GraphNode[] = graph.nodes.map((n) => {
     const type = nodeType(n);
     let label = n.id;
     let sublabel: string | undefined = shortName(n.label);
@@ -169,6 +178,7 @@ export function contractToAMLCase(c: CaseContract): AMLCase {
       id: n.id,
       label,
       sublabel,
+      name: n.label,          // full, untruncated name for the hover tooltip
       x: pos[n.id]?.x ?? CX,
       y: pos[n.id]?.y ?? CY,
       radius: rad.get(n.id) ?? 18,
@@ -181,10 +191,11 @@ export function contractToAMLCase(c: CaseContract): AMLCase {
       sanctioned: n.flags.sanctioned,
       shell: n.flags.shell,
       subject: n.flags.subject,
+      peerSubject: n.flags.peer_subject,
     };
   });
 
-  const edges: GraphEdge[] = c.graph.edges.map((e) => ({
+  const edges: GraphEdge[] = graph.edges.map((e) => ({
     id: e.id,
     from: e.source,
     to: e.target,
@@ -193,7 +204,15 @@ export function contractToAMLCase(c: CaseContract): AMLCase {
     suspicious: e.pattern != null,
     category: edgeCategory(e.pattern),
     txns: 1,
+    types: e.channel,   // transaction types on this arc (backend: DISTINCT SENT.channel)
   }));
+
+  return { nodes, edges };
+}
+
+export function contractToAMLCase(c: CaseContract): AMLCase {
+  const subjectId = c.case.subject_entity_id;
+  const { nodes, edges } = graphToViewModel(c.graph, subjectId);
 
   const riskFactors = c.detectors
     .filter((d) => d.fired)

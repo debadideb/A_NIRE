@@ -5,12 +5,11 @@ Ingestion discipline (matches the design principle — RAW attributes only):
   * The subject comes from the case file (cases.csv), not a data column, and is
     resolved per case at query time — there is no global :Subject label because
     the dataset now holds five cases sharing one graph.
-  * Transactions are subject-centric: each row is a movement between a case
-    subject and a counterparty with a credit/debit code. It becomes a directed
-    `:SENT` edge — D = subject sent to counterparty, C = counterparty sent to
-    subject — so `:SENT` always means "money moved a -> b". The edge carries the
-    owning `subject_id`, so a case's ego-network is every SENT edge with that
-    subject_id.
+  * Transactions are an EDGE LIST: each row is a directed movement `from_id ->
+    to_id` (money moved a -> b), so counterparty->counterparty flow at any hop is
+    a first-class edge, not just subject<->counterparty. Every edge carries the
+    owning `subject_id` (the case root whose k-hop network it belongs to) and its
+    `hop` depth, so a case's network is every SENT edge with that subject_id.
   * `:Sanctioned` is DERIVED from a confirmed World-Check sanctions hit at/above
     the score cutoff, never read from a label.
   * Shell / high-risk / structuring / circular are NOT baked in as labels; they
@@ -91,48 +90,36 @@ def build_graph(driver) -> dict:
         rows=kyc,
     )
 
-    # 3. Transactions -> directed :SENT edges. Enrich in Python (float amount +
-    #    ordinal day) so the Cypher stays simple and date math is trivial.
-    edges = []
-    for r in txns:
-        edges.append({
-            "subject_id": r["subject_id"],
-            "counterparty_id": r["counterparty_id"],
-            "direction": r["credit_debit_code"],
-            "key": r["transaction_key"],
-            "amount": float(r["amount"]),
-            "day": _day(r["transaction_date"]),
-            "date": r["transaction_date"],
-            "ttype": r["transaction_type"],
-            "benef": r["beneficiary_bank_country"],
-            "orig": r["originator_bank_country"],
-        })
-    debits = [e for e in edges if e["direction"] == "D"]
-    credits = [e for e in edges if e["direction"] == "C"]
-    _edge_props = """
-        key: r.key, amount: r.amount, day: r.day, txn_date: r.date,
-        channel: r.ttype, benef_country: r.benef, orig_country: r.orig,
-        subject_id: r.subject_id, direction: r.direction
-    """
-    # D: subject -> counterparty
+    # 3. Transactions -> directed :SENT edges (from_id -> to_id). The schema is a
+    #    proper edge list, so counterparty->counterparty flow at any hop is a
+    #    first-class edge. Each edge carries the owning subject_id (the case root
+    #    whose network it belongs to) and its hop depth. Enrich in Python (float
+    #    amount + ordinal day) so the Cypher stays simple and date math is trivial.
+    edges = [{
+        "subject_id": r["subject_id"],
+        "frm": r["from_id"],
+        "to": r["to_id"],
+        "key": r["transaction_key"],
+        "amount": float(r["amount"]),
+        "day": _day(r["transaction_date"]),
+        "date": r["transaction_date"],
+        "ttype": r["transaction_type"],
+        "benef": r["beneficiary_bank_country"],
+        "orig": r["originator_bank_country"],
+        "hop": int(r["hop"]),
+    } for r in txns]
     q(
-        f"""
+        """
         UNWIND $rows AS r
-        MATCH (s:Entity {{entity_id: r.subject_id}})
-        MATCH (c:Entity {{entity_id: r.counterparty_id}})
-        CREATE (s)-[:SENT {{{_edge_props}}}]->(c)
+        MATCH (a:Entity {entity_id: r.frm})
+        MATCH (b:Entity {entity_id: r.to})
+        CREATE (a)-[:SENT {
+            key: r.key, amount: r.amount, day: r.day, txn_date: r.date,
+            channel: r.ttype, benef_country: r.benef, orig_country: r.orig,
+            subject_id: r.subject_id, hop: r.hop
+        }]->(b)
         """,
-        rows=debits,
-    )
-    # C: counterparty -> subject
-    q(
-        f"""
-        UNWIND $rows AS r
-        MATCH (s:Entity {{entity_id: r.subject_id}})
-        MATCH (c:Entity {{entity_id: r.counterparty_id}})
-        CREATE (c)-[:SENT {{{_edge_props}}}]->(s)
-        """,
-        rows=credits,
+        rows=edges,
     )
 
     # 4. Derive :Sanctioned from confirmed World-Check sanctions hits >= cutoff.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ShieldAlert, ArrowDownLeft, ArrowUpRight, Loader2 } from 'lucide-react';
+import { X, ShieldAlert, ArrowDownLeft, ArrowUpRight, Loader2, ChevronRight, Crosshair } from 'lucide-react';
 import { EntityDetail, fetchEntity } from '../data/api';
 
 interface Props {
@@ -104,6 +104,39 @@ export function EntityModal({ caseId, entityId, onClose }: Props) {
                 </div>
               )}
 
+              {/* Trail back to the subject — the hop-chain (by name) from the
+                  alerted subject to this entity, so the risk reads end-to-end
+                  rather than as a floating counterparty. */}
+              {detail.trail && detail.trail.length > 1 && (
+                <div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1.5 font-medium">
+                    Trail to subject
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+                    {detail.trail.map((step, i) => {
+                      const isSubject = i === 0;
+                      const isEntity = i === detail.trail.length - 1;
+                      return (
+                        <span key={step.id} className="flex items-center gap-1">
+                          <span
+                            className={`text-[11px] leading-snug ${
+                              isSubject ? 'font-semibold text-indigo-700'
+                              : isEntity ? 'font-semibold text-slate-800'
+                              : 'text-slate-600'
+                            }`}
+                            title={step.id}
+                          >
+                            {isSubject && <Crosshair size={10} className="inline mr-0.5 -mt-0.5" />}
+                            {step.name}
+                          </span>
+                          {!isEntity && <ChevronRight size={12} className="text-gray-300 flex-shrink-0" />}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Risky paths */}
               <div>
                 <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1.5 font-medium">
@@ -120,7 +153,8 @@ export function EntityModal({ caseId, entityId, onClose }: Props) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-[11px] text-slate-700">
-                            <span className="font-medium">{p.direction === 'debit' ? 'To' : 'From'} {p.counterparty}</span>
+                            <span className="font-medium">{p.direction === 'debit' ? 'To' : 'From'} {p.counterparty_name}</span>
+                            <span className="text-gray-400 font-mono"> · {p.counterparty}</span>
                             <span className="text-gray-400"> · {p.reason}</span>
                           </div>
                           <div className="text-[10px] text-gray-400">{p.txn_ids.join(', ')}</div>

@@ -29,11 +29,16 @@ sys.path.insert(0, str(_HERE))
 import providers                              # noqa: E402
 import store                                  # noqa: E402
 from config import DATA_DIR                   # noqa: E402
-from graphdb import build_graph, get_driver  # noqa: E402
+from graphdb import DB, build_graph, get_driver  # noqa: E402
 from llm import generate_rationale            # noqa: E402
-from scoring import build_case_contract, build_entity_detail  # noqa: E402
+from scoring import build_case_contract, build_entity_detail, build_graph_view  # noqa: E402
 
 FRONTEND_DIR = _HERE.parent / "frontend"
+
+# Graph time-window control: how far back from the dataset's most recent day each
+# duration option reaches (edges carry an ordinal `day`). "12m" is served as the
+# full network (minday=None), so it exactly equals the cached contract graph.
+WINDOW_DAYS = {"1m": 30, "3m": 91, "6m": 182, "12m": 365}
 
 
 @asynccontextmanager
@@ -48,6 +53,8 @@ async def lifespan(app: FastAPI):
     """
     app.state.contracts = None
     app.state.error = None
+    app.state.driver = None          # kept for the windowed-graph endpoint
+    app.state.as_of_day = None       # dataset's most recent ordinal day (window anchor)
     store.init_db()  # decisions/audit table — independent of Neo4j, so it's always ready
     driver = None
     try:
@@ -59,6 +66,12 @@ async def lifespan(app: FastAPI):
         app.state.contracts = {
             c["case_id"]: build_case_contract(driver, report, c) for c in cases
         }
+        # Anchor the duration windows on the latest transaction in the dataset, so
+        # "last 1 month" means the month ending at the most recent activity.
+        rows = driver.execute_query(
+            "MATCH ()-[r:SENT]->() RETURN max(r.day) AS d", database_=DB).records
+        app.state.driver = driver
+        app.state.as_of_day = rows[0]["d"] if rows else None
     except Exception as exc:  # noqa: BLE001 — keep the app up; report 503 from endpoints
         # Full detail stays server-side (may contain hostnames/URIs); clients
         # only ever see a generic "graph not ready".
@@ -136,6 +149,25 @@ def get_case(case_id: str) -> dict:
     contract = _require_case(case_id)
     _ensure_rationale(contract)  # generate the LLM rationale on first view (cached)
     return contract
+
+
+@app.get("/api/case/{case_id}/graph")
+def get_case_graph(case_id: str, window: str = "12m") -> dict:
+    """Time-windowed {nodes, edges} for the case network (graph-view control only).
+
+    A view over the SAME cached detectors — the score/recommendation are NOT
+    recomputed, so the full-case assessment (and the acceptance test) is untouched.
+    `window` in 1m/3m/6m/12m; 12m is the full network (equals the contract graph).
+    """
+    contract = _require_case(case_id)
+    if window not in WINDOW_DAYS:
+        raise HTTPException(status_code=400,
+                            detail=f"window must be one of {sorted(WINDOW_DAYS)}")
+    sid = contract["case"]["subject_entity_id"]
+    minday = (None if window == "12m" or app.state.as_of_day is None
+              else app.state.as_of_day - WINDOW_DAYS[window])
+    view = build_graph_view(app.state.driver, contract["detectors"], sid, minday)
+    return {"window": window, "as_of_day": app.state.as_of_day, **view}
 
 
 class DecisionIn(BaseModel):

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, ArrowUpCircle, CheckCircle, Clock, User, Cpu, ChevronDown, Download, Loader2 } from 'lucide-react';
+import { FileText, ArrowUpCircle, CheckCircle, Clock, User, Cpu, ChevronDown, Download, Loader2, Hourglass } from 'lucide-react';
 import { AMLCase, RiskCategory } from '../data/cases';
 import { CaseProgress, addFinding, saveCaseProgress, exportLog } from '../hooks/useCaseStorage';
 import { fetchModels, ModelsInfo, postDecision, regenerateRationale } from '../data/api';
@@ -41,13 +41,14 @@ const DECISION_ACTION: Record<'filed' | 'escalated' | 'cleared', string> = {
 interface Props {
   amlCase: AMLCase | null;
   progress: CaseProgress | null;
+  loading?: boolean;   // a case is being fetched/scored — show a working indicator
   decidedBy: string;
   isolatedCategory: string | null;
   onIsolate: (category: string) => void;
   onProgressChange: (p: CaseProgress) => void;
 }
 
-export function RiskPanel({ amlCase, progress, decidedBy, isolatedCategory, onIsolate, onProgressChange }: Props) {
+export function RiskPanel({ amlCase, progress, loading = false, decidedBy, isolatedCategory, onIsolate, onProgressChange }: Props) {
   const [expandedFactors, setExpandedFactors] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<'sar' | 'trail'>('sar');
   const [models, setModels] = useState<ModelsInfo | null>(null);
@@ -67,6 +68,22 @@ export function RiskPanel({ amlCase, progress, decidedBy, isolatedCategory, onIs
     if (isLive) fetchModels().then(setModels).catch(() => setModels(null));
     else setModels(null);
   }, [amlCase?.id, isLive]);
+
+  // While a case is loading, show a working indicator (a turning hourglass) — not
+  // the empty "no case" state — so the panel reads as "analysing", not "cleared".
+  if (loading) {
+    return (
+      <div className="w-[380px] flex-shrink-0 flex flex-col items-center justify-center bg-white border-l border-gray-200 text-center px-8">
+        <Hourglass
+          size={30}
+          className="text-indigo-500 mb-3 animate-spin"
+          style={{ animationDuration: '1.6s' }}
+        />
+        <p className="text-sm font-medium text-gray-600 mb-1">Analyzing the data</p>
+        <p className="text-xs text-gray-400">Building the scored network and risk assessment…</p>
+      </div>
+    );
+  }
 
   if (!amlCase || !progress) {
     return (

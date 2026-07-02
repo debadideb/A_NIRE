@@ -60,6 +60,13 @@ CIRCULAR_MIN_COUNT = 10
 # shell_linkage: subject funds >= this many offshore cps sharing a beneficial owner.
 SHELL_MIN_CLUSTER = 3
 
+# --- Multi-hop traversal bounds (the network is now a k-hop graph) ----------
+# How deep a detector will walk out from the subject. The generated tree is
+# k=3 deep; these give a little headroom for planted paths/loops.
+SANCTIONED_MAX_HOP = 4     # subject -> ... -> :Sanctioned within this many hops
+SHELL_MAX_HOP = 4          # subject funds an offshore cluster within this many hops
+CIRCULAR_MAX_LEN = 8       # longest closed loop (in edges) the cycle search considers
+
 # --- Rule-based score: per-detector contribution weights --------------------
 # One number per typology, ordered by severity. A single typology lands in EDD
 # (escalate); a second corroborating typology pushes the case into SAR (file).

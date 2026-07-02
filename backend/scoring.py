@@ -1,13 +1,17 @@
 """Detectors (in Cypher), rule-based scoring, and contract assembly.
 
-Five detectors run over the built graph, each scoped to one case subject's
-ego-network (every :SENT edge carrying that subject_id):
+The graph is a k-hop counterparty network per subject (subject -> counterparties
+-> sub-counterparties -> ...), so detectors now TRAVERSE, each scoped to one
+case's network (every :SENT edge carrying that subject_id):
 
-  * sanctioned_exposure — subject sends to a :Sanctioned counterparty
-  * high_risk_outbound  — many high-value debits to high-risk jurisdictions
-  * structuring         — many debits just under a reporting threshold to one cp
-  * circular_flow       — matched reciprocal round-trips (send £X, get £~X back)
-  * shell_linkage       — subject funds >=N offshore cps sharing a beneficial owner
+  * sanctioned_exposure — a real path subject -> ... -> :Sanctioned within k hops
+  * high_risk_outbound  — any node in the network (subject or a deep intermediary)
+                          makes many high-value debits to high-risk jurisdictions
+  * structuring         — any node fans many near-threshold debits out to several
+                          counterparties in a tight window (deep cash-in/layer-out)
+  * circular_flow       — a genuine closed loop subject -> ... -> subject (len >= 3,
+                          often long: through several counterparties before returning)
+  * shell_linkage       — the network funds >=N offshore cps sharing a beneficial owner
 
 Detectors here emit pure *evidence* (which patterns fired, over which entities/
 txns, with a plain-language explanation) and carry NO score. Turning evidence
@@ -51,7 +55,7 @@ def _result(key, name, fired, entities, txns, explanation) -> dict:
             "entities": entities, "txns": txns, "explanation": explanation}
 
 
-# --- Detectors (all scoped to $sid; edges carry subject_id) ------------------
+# --- Detectors (all scoped to a case network via edge.subject_id; multi-hop) --
 
 def run_detectors(driver, sid: str) -> list[dict]:
     """Run all five detectors for one subject; return one result dict each."""
@@ -65,134 +69,187 @@ def run_detectors(driver, sid: str) -> list[dict]:
 
 
 def _sanctioned(driver, sid) -> dict:
-    rows = _records(driver, """
-        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(t:Sanctioned)
-        RETURN collect(DISTINCT t.entity_id) AS ids,
-               collect(DISTINCT t.screened_name) AS names,
-               collect(DISTINCT t.sanction_list) AS lists,
-               max(t.sanction_match) AS score, sum(r.amount) AS total,
-               count(r) AS n, collect(r.key)[..80] AS txns
+    # A real path from the subject out to a sanctioned node, within k hops.
+    rows = _records(driver, f"""
+        MATCH p = shortestPath((s:Entity {{entity_id:$sid}})-[:SENT*1..{config.SANCTIONED_MAX_HOP}]->(t:Sanctioned))
+        WHERE all(r IN relationships(p) WHERE r.subject_id = $sid)
+        RETURN [n IN nodes(p) | n.entity_id] AS ents,
+               [r IN relationships(p) | r.key] AS txns,
+               t.entity_id AS tid, t.screened_name AS name,
+               t.sanction_list AS list, t.sanction_match AS score, length(p) AS hops
+        ORDER BY hops LIMIT 1
     """, sid=sid)
-    r = rows[0] if rows else {}
-    ids = r.get("ids") or []
-    if ids:
+    if rows:
+        r = rows[0]
         return _result(
-            "sanctioned_exposure", "Sanctioned exposure", True, [sid] + ids, r["txns"],
-            f"The subject sent {_gbp(r['total'])} across {r['n']} transaction(s) to "
-            f"{len(ids)} sanctioned counterparty(ies) — {', '.join(r['names'])} "
-            f"({', '.join(l for l in r['lists'] if l)} hit, match score {int(r['score'])}).",
+            "sanctioned_exposure", "Sanctioned exposure", True, r["ents"], r["txns"],
+            f"The subject reaches a sanctioned counterparty in {r['hops']} hop(s): "
+            f"{'→'.join(r['ents'])} — {r['tid']} ({r['name']}) is a {r['list']} "
+            f"World-Check hit at match score {int(r['score'])}.",
         )
     return _result("sanctioned_exposure", "Sanctioned exposure", False, [], [],
-                   "No payments from the subject to a sanctioned counterparty.")
+                   "No path from the subject to a sanctioned counterparty.")
 
 
 def _high_risk_outbound(driver, sid) -> dict:
+    # Network-wide: any node in the case network (the subject OR an intermediary
+    # cut-out deeper out) that pushes many high-value debits to high-risk
+    # jurisdictions. Grouped by sender so the typology is caught wherever it sits.
     rows = _records(driver, """
-        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
+        MATCH (a)-[r:SENT {subject_id:$sid}]->(c)
         WHERE r.amount >= $hv AND r.benef_country IN $hr
-        RETURN count(r) AS n, sum(r.amount) AS total,
-               collect(DISTINCT c.entity_id) AS cps,
-               collect(DISTINCT r.benef_country) AS countries,
-               collect(r.key)[..80] AS txns
-    """, sid=sid, hv=config.HIGH_VALUE_GBP, hr=list(config.HIGH_RISK_JURISDICTIONS))
-    r = rows[0] if rows else {}
-    n = r.get("n") or 0
-    if n >= config.HIGH_RISK_OUTBOUND_MIN_COUNT:
+        WITH a, count(r) AS n, sum(r.amount) AS total,
+             collect(DISTINCT c.entity_id) AS cps,
+             collect(DISTINCT r.benef_country) AS countries,
+             collect(r.key)[..80] AS txns
+        WHERE n >= $minc
+        RETURN a.entity_id AS src, n, total, cps, countries, txns
+        ORDER BY n DESC LIMIT 1
+    """, sid=sid, hv=config.HIGH_VALUE_GBP, hr=list(config.HIGH_RISK_JURISDICTIONS),
+         minc=config.HIGH_RISK_OUTBOUND_MIN_COUNT)
+    if rows:
+        r = rows[0]
+        where = "the subject" if r["src"] == sid else f"an intermediary ({r['src']})"
         return _result(
-            "high_risk_outbound", "High-risk outbound", True, [sid] + r["cps"], r["txns"],
-            f"{n} high-value debits totalling {_gbp(r['total'])} left the subject to "
+            "high_risk_outbound", "High-risk outbound", True, [r["src"]] + r["cps"], r["txns"],
+            f"{r['n']} high-value debits totalling {_gbp(r['total'])} left {where} to "
             f"high-risk jurisdictions ({', '.join(sorted(r['countries']))}), each at or "
             f"above {_gbp(config.HIGH_VALUE_GBP)}.",
         )
     return _result("high_risk_outbound", "High-risk outbound", False, [], [],
-                   f"Fewer than {config.HIGH_RISK_OUTBOUND_MIN_COUNT} high-value debits to high-risk jurisdictions.")
+                   f"No node made >= {config.HIGH_RISK_OUTBOUND_MIN_COUNT} high-value debits to high-risk jurisdictions.")
 
 
 def _structuring(driver, sid) -> dict:
+    # Network-wide layering: a single node (the subject OR a hub deep in the
+    # network) that pushes OUT many near-threshold debits to several counterparties
+    # inside a tight window — the fan-out signature of cash broken into sub-limit
+    # chunks. Grouped by sender, so a deep cash-in/layer-out hub is caught.
     lo, hi = config.STRUCTURING_BAND
     rows = _records(driver, """
-        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
+        MATCH (a)-[r:SENT {subject_id:$sid}]->(c)
         WHERE r.amount >= $lo AND r.amount < $hi
-        WITH c, count(r) AS cnt, sum(r.amount) AS tot, collect(r.key) AS keys,
+        WITH a, count(r) AS cnt, sum(r.amount) AS tot,
+             collect(DISTINCT c.entity_id) AS cps, collect(r.key) AS keys,
              max(r.day) - min(r.day) AS span
         WHERE cnt >= $minc AND span <= $win
-        RETURN collect(c.entity_id) AS cps, sum(cnt) AS n, sum(tot) AS total,
-               reduce(a=[], k IN collect(keys) | a + k)[..80] AS txns
+        RETURN a.entity_id AS hub, cnt, tot, cps, keys[..80] AS txns
+        ORDER BY cnt DESC LIMIT 1
     """, sid=sid, lo=lo, hi=hi, minc=config.STRUCTURING_MIN_COUNT,
          win=config.STRUCTURING_WINDOW_DAYS)
-    r = rows[0] if rows else {}
-    cps = r.get("cps") or []
-    if cps:
+    if rows:
+        r = rows[0]
+        where = "the subject" if r["hub"] == sid else f"an intermediary ({r['hub']})"
         return _result(
-            "structuring", "Structuring", True, [sid] + cps, r["txns"],
-            f"{r['n']} debits of {_gbp(lo)}–{_gbp(hi)} (just under the reporting threshold) "
-            f"went to {len(cps)} counterparty(ies) totalling {_gbp(r['total'])} — a smurfing "
-            f"/ structuring signature.",
+            "structuring", "Structuring", True, [r["hub"]] + r["cps"], r["txns"],
+            f"{where} layered {r['cnt']} debits of {_gbp(lo)}–{_gbp(hi)} (just under the "
+            f"reporting threshold) out to {len(r['cps'])} counterparties totalling "
+            f"{_gbp(r['tot'])} within {config.STRUCTURING_WINDOW_DAYS} days — a structuring "
+            f"/ layering signature.",
         )
     return _result("structuring", "Structuring", False, [], [],
-                   f"No counterparty received >= {config.STRUCTURING_MIN_COUNT} near-threshold debits.")
+                   f"No node made >= {config.STRUCTURING_MIN_COUNT} near-threshold debits within "
+                   f"{config.STRUCTURING_WINDOW_DAYS} days.")
 
 
 def _circular(driver, sid) -> dict:
-    # n counts distinct OUTBOUND legs that were returned within tolerance/window
-    # (each `out` collapsed once via WITH c, out). A single credit could in theory
-    # answer several debits, but the tight tol (2%) + 5-day window keep background
-    # coincidences in single digits (measured), while a real loop yields >100 — so
-    # min-count 10 separates cleanly without needing strict one-to-one pairing.
-    rows = _records(driver, """
-        MATCH (s:Entity {entity_id:$sid})-[out:SENT {subject_id:$sid, direction:'D'}]->(c)
-        MATCH (c)-[back:SENT {subject_id:$sid, direction:'C'}]->(s)
-        WHERE back.day >= out.day AND back.day - out.day <= $win
-          AND abs(out.amount - back.amount) <= $tol * out.amount
-        WITH c, out, min(back.day - out.day) AS lag, collect(back.key)[0] AS back_key
-        RETURN count(*) AS n, sum(out.amount) AS total,
-               collect(DISTINCT c.entity_id) AS cps,
-               (collect(out.key) + collect(back_key))[..80] AS txns
-    """, sid=sid, win=config.ROUNDTRIP_WINDOW_DAYS, tol=config.ROUNDTRIP_TOLERANCE)
-    r = rows[0] if rows else {}
-    n = r.get("n") or 0
-    if n >= config.CIRCULAR_MIN_COUNT:
+    # A genuine closed loop of length >= 3: find a node that pays the subject back
+    # (an edge into the subject), then the SHORTEST outbound path to it. shortestPath
+    # is BFS — enumerating every trail on the multigraph (many parallel :SENT edges
+    # per relationship) would blow up combinatorially.
+    #
+    # CRITICAL: the `length(path) >= 2` filter lives in a SEPARATE `WITH`, NOT inside
+    # the shortestPath's own WHERE. Inlining it makes Neo4j fall back to EXHAUSTIVE
+    # path enumeration whenever the shortest path can't satisfy the predicate — which
+    # is exactly the case for the subject's income counterparties (pure sources, not
+    # reachable from the subject): that fallback is the combinatorial blow-up. As a
+    # post-filter the shortestPath stays a plain BFS that simply finds nothing for an
+    # unreachable payer. (Neo4j forbids property maps inside shortestPath, so the
+    # walk isn't scoped to subject_id — harmless here: only this case's income payers
+    # carry an edge into the subject, and they're unreachable either way.)
+    #
+    # length(path) >= 2 makes the closed loop (path + the return edge) >= 3, which
+    # excludes trivial 2-cycles. `trips`/`back_total` aggregate ALL return edges from
+    # the payer to the subject (the scheme repeats), rather than quoting one arbitrary
+    # parallel leg (per-iteration amounts don't line up across parallel edges, so a
+    # single "out vs back" pair would mislead).
+    rows = _records(driver, f"""
+        MATCH (x)-[:SENT {{subject_id:$sid}}]->(s:Entity {{entity_id:$sid}})
+        WHERE x.entity_id <> $sid
+        WITH DISTINCT x
+        MATCH path = shortestPath((s2:Entity {{entity_id:$sid}})-[:SENT*1..{config.CIRCULAR_MAX_LEN}]->(x))
+        WITH x, path, length(path) AS plen
+        WHERE plen >= 2
+        WITH x, path, plen ORDER BY plen LIMIT 1
+        MATCH (x)-[back:SENT {{subject_id:$sid}}]->(:Entity {{entity_id:$sid}})
+        WITH path, plen, count(back) AS trips, sum(back.amount) AS back_total
+        RETURN [n IN nodes(path) | n.entity_id] AS ents,
+               [r IN relationships(path) | r.key] AS txns,
+               plen + 1 AS len, trips, back_total
+        LIMIT 1
+    """, sid=sid)
+    if rows:
+        r = rows[0]
+        ents = r["ents"]                        # [subject, ..., payer]
+        loop = "→".join(ents + [ents[0]])
         return _result(
-            "circular_flow", "Circular flow", True, [sid] + r["cps"], r["txns"],
-            f"{n} matched round-trips ({_gbp(r['total'])} sent and returned within "
-            f"{config.ROUNDTRIP_WINDOW_DAYS} days at ~the same amount) across {len(r['cps'])} "
-            f"counterparty(ies) — a layering / circular fund-flow signature.",
+            "circular_flow", "Circular flow", True, ents, r["txns"],
+            f"Funds left the subject and returned through a closed loop of length {r['len']} "
+            f"passing through {len(ents) - 1} counterparties: {loop}. {r['trips']} round-trip(s) "
+            f"totalling {_gbp(r['back_total'])} came back to the subject — a layering / circular "
+            f"fund-flow signature.",
         )
     return _result("circular_flow", "Circular flow", False, [], [],
-                   f"Fewer than {config.CIRCULAR_MIN_COUNT} matched reciprocal round-trips.")
+                   "No closed loop of length ≥3 through the subject.")
 
 
 def _shell(driver, sid) -> dict:
+    # Offshore counterparties in the subject's network (every entity funded within
+    # the case is a target of some subject_id edge — the network is a tree rooted
+    # at the subject, so membership = reachable) that share a beneficial owner — a
+    # shell cluster. Membership over edge targets avoids var-length path
+    # enumeration (which would blow up on the multigraph). Then collect the funding
+    # transactions into the cluster for the evidence trail.
     rows = _records(driver, """
-        MATCH (s:Entity {entity_id:$sid})-[r:SENT {subject_id:$sid, direction:'D'}]->(c)
+        MATCH (a)-[:SENT {subject_id:$sid}]->(c)
         WHERE c.jurisdiction IN $off AND c.beneficial_owner <> ''
-        WITH c.beneficial_owner AS bo, collect(DISTINCT c.entity_id) AS cps,
-             sum(r.amount) AS tot, collect(r.key) AS keys
+        WITH DISTINCT c
+        WITH c.beneficial_owner AS bo, collect(DISTINCT c.entity_id) AS cps
         WHERE size(cps) >= $minc
-        RETURN reduce(a=[], x IN collect(cps) | a + x) AS ents,
-               collect(bo) AS bos, sum(tot) AS total,
-               reduce(a=[], k IN collect(keys) | a + k)[..80] AS txns
+        RETURN reduce(a=[], x IN collect(cps) | a + x) AS ents, collect(bo) AS bos
     """, sid=sid, off=list(config.OFFSHORE_JURISDICTIONS), minc=config.SHELL_MIN_CLUSTER)
     r = rows[0] if rows else {}
     ents = r.get("ents") or []
-    if ents:
-        return _result(
-            "shell_linkage", "Shell linkage", True, [sid] + ents, r["txns"],
-            f"The subject funds {len(ents)} offshore companies ({', '.join(ents)}) that share "
-            f"a beneficial owner ({', '.join(r['bos'])}) and are incorporated in secrecy "
-            f"jurisdictions — a shell-company cluster ({_gbp(r['total'])} funded).",
-        )
-    return _result("shell_linkage", "Shell linkage", False, [], [],
-                   f"No subject-funded cluster of >= {config.SHELL_MIN_CLUSTER} offshore shells sharing an owner.")
+    if not ents:
+        return _result("shell_linkage", "Shell linkage", False, [], [],
+                       f"No subject-funded cluster of >= {config.SHELL_MIN_CLUSTER} offshore shells sharing an owner.")
+    fund = _records(driver, """
+        MATCH (a)-[r:SENT {subject_id:$sid}]->(sh:Entity)
+        WHERE sh.entity_id IN $shells
+        RETURN collect(r.key)[..80] AS txns, sum(r.amount) AS total
+    """, sid=sid, shells=ents)
+    txns = fund[0]["txns"] if fund else []
+    total = fund[0]["total"] if fund else 0
+    bos = sorted(set(r.get("bos") or []))
+    return _result(
+        "shell_linkage", "Shell linkage", True, [sid] + ents, txns,
+        f"The subject funds {len(ents)} offshore companies ({', '.join(ents)}) that share a "
+        f"beneficial owner ({', '.join(bos)}) and are incorporated in secrecy jurisdictions "
+        f"— a shell-company cluster ({_gbp(total)} funded).",
+    )
 
 
-# --- Graph queries (subject ego-network) ------------------------------------
+# --- Graph queries (the subject's whole k-hop network) ----------------------
+# Both queries take $minday: when it is null they cover the whole network; when
+# it is an ordinal day they keep only transactions on/after that day (the graph's
+# time-window control). Edges carry an ordinal `day` (graphdb._day).
 
+# Every entity that appears on an edge belonging to this case's (windowed) network.
 _NODES = """
-MATCH (s:Entity {entity_id:$sid})
-OPTIONAL MATCH (s)-[:SENT {subject_id:$sid}]-(c)
-WITH s, collect(DISTINCT c) AS cps
-UNWIND ([s] + cps) AS e
+MATCH (a:Entity)-[r:SENT {subject_id:$sid}]->(b:Entity)
+WHERE $minday IS NULL OR r.day >= $minday
+WITH collect(DISTINCT a) + collect(DISTINCT b) AS ns
+UNWIND ns AS e
 RETURN DISTINCT e.entity_id AS id, e.name AS label, e.type AS type,
        e.jurisdiction AS jurisdiction, e.kyc_risk_rating AS kyc_risk,
        e.beneficial_owner AS beneficial_owner, e.pep_flag AS pep_flag,
@@ -200,17 +257,27 @@ RETURN DISTINCT e.entity_id AS id, e.name AS label, e.type AS type,
 ORDER BY id
 """
 
-# Aggregate the subject's transactions into one edge per (source, target,
-# direction) so the graph stays legible (per-txn detail lives in the CSVs).
+# Aggregate the (windowed) network's transactions into one edge per (source,
+# target) so the graph stays legible (per-txn detail lives in the CSVs). hop =
+# shallowest depth of the edge from the subject, handy for layout/debugging.
 _EDGES = """
 MATCH (a:Entity)-[r:SENT {subject_id:$sid}]->(b:Entity)
-WITH a.entity_id AS source, b.entity_id AS target, r.direction AS direction,
+WHERE $minday IS NULL OR r.day >= $minday
+WITH a.entity_id AS source, b.entity_id AS target,
      sum(r.amount) AS amount, count(r) AS cnt,
      collect(DISTINCT r.channel) AS channels, max(r.txn_date) AS last_date,
-     collect(r.key)[..8] AS keys
-RETURN source, target, direction, amount, cnt, channels, last_date, keys
+     collect(r.key)[..8] AS keys, min(r.hop) AS hop
+RETURN source, target, amount, cnt, channels, last_date, keys, hop
 ORDER BY amount DESC
 """
+
+
+def _all_subject_ids() -> set[str]:
+    """Every case's subject id — so a counterparty that is itself the subject of a
+    DIFFERENT case (the networks are wired together by a peer ring) can be flagged
+    and rendered distinctly, not as an ordinary counterparty."""
+    with open(DATA_DIR / "cases.csv", newline="", encoding="utf-8") as f:
+        return {r["subject_id"] for r in csv.DictReader(f)}
 
 
 def _role(node_id, flags, ent_sets) -> str:
@@ -229,13 +296,15 @@ def _role(node_id, flags, ent_sets) -> str:
     return "counterparty"
 
 
-def build_case_contract(driver, build_report: dict, case: dict) -> dict:
-    """Assemble one case's contract from the graph + detector results.
+def build_graph_view(driver, detectors: list[dict], sid: str, minday: int | None = None) -> dict:
+    """Build {nodes, edges} for one case's k-hop network, optionally time-windowed.
 
-    `case` is a row from cases.csv (case_id + subject_id + metadata).
+    `minday` (an ordinal day) keeps only transactions on/after it; None ⇒ the
+    whole network. Node roles/flags and edge patterns are DERIVED from the
+    already-run `detectors`, so a windowed view keeps its detector colours without
+    re-running detection or the score. This is the seam the startup contract build
+    and the windowed-graph endpoint both use.
     """
-    sid = case["subject_id"]
-    detectors = run_detectors(driver, sid)
     by_key = {d["key"]: d for d in detectors}
     ent_sets = {k: set(by_key[k]["entities"]) for k in PATTERN}
 
@@ -248,8 +317,9 @@ def build_case_contract(driver, build_report: dict, case: dict) -> dict:
                     cp_pattern.setdefault(eid, PATTERN[key])
 
     # Nodes
+    all_subjects = _all_subject_ids()
     nodes = []
-    for n in _records(driver, _NODES, sid=sid):
+    for n in _records(driver, _NODES, sid=sid, minday=minday):
         labels = set(n["labels"])
         flags = {
             "subject": n["id"] == sid,
@@ -257,6 +327,8 @@ def build_case_contract(driver, build_report: dict, case: dict) -> dict:
             # Shell applies to the funded cluster members, never the subject
             # itself (the shell detector's entity set is [subject] + cluster).
             "shell": n["id"] != sid and n["id"] in ent_sets["shell_linkage"],
+            # A counterparty here that is the ALERTED SUBJECT of another case.
+            "peer_subject": n["id"] != sid and n["id"] in all_subjects,
         }
         nodes.append({
             "id": n["id"],
@@ -272,7 +344,7 @@ def build_case_contract(driver, build_report: dict, case: dict) -> dict:
 
     # Edges (aggregated) — pattern from the non-subject endpoint's fired detector.
     edges = []
-    for e in _records(driver, _EDGES, sid=sid):
+    for e in _records(driver, _EDGES, sid=sid, minday=minday):
         cp = e["target"] if e["source"] == sid else e["source"]
         edges.append({
             "id": f"{e['source']}->{e['target']}",
@@ -282,9 +354,25 @@ def build_case_contract(driver, build_report: dict, case: dict) -> dict:
             "txn_date": e["last_date"],
             "channel": ", ".join(e["channels"][:3]),
             "count": e["cnt"],
+            "hop": e["hop"],
             "txn_ids": e["keys"],           # sample of underlying txn keys (capped)
             "pattern": cp_pattern.get(cp),
         })
+
+    return {"nodes": nodes, "edges": edges}
+
+
+def build_case_contract(driver, build_report: dict, case: dict) -> dict:
+    """Assemble one case's contract from the graph + detector results.
+
+    `case` is a row from cases.csv (case_id + subject_id + metadata).
+    """
+    sid = case["subject_id"]
+    detectors = run_detectors(driver, sid)
+
+    # Nodes/edges over the whole network (the seam reused by the windowed endpoint).
+    view = build_graph_view(driver, detectors, sid)
+    nodes, edges = view["nodes"], view["edges"]
 
     # Score via the configured engine (detectors are pure evidence).
     result = get_engine().score(detectors, {"nodes": nodes, "edges": edges})
@@ -376,6 +464,44 @@ def _csv_by_id(name: str) -> dict[str, dict]:
         return {r["entity_id"]: r for r in csv.DictReader(f)}
 
 
+def _trail_from_subject(edges: list[dict], subject_id: str, target_id: str) -> list[str]:
+    """Shortest hop-chain of entity ids from the subject to `target_id`.
+
+    Money flows subject -> outward, so we BFS the DIRECTED graph first (that is the
+    real funding corridor). A few actors sit on a leg that only reaches the subject
+    against the flow (e.g. a reciprocal/circular return), so we fall back to an
+    undirected BFS to guarantee the trail always resolves. Returns [subject..target]
+    or [] if genuinely disconnected.
+    """
+    if target_id == subject_id:
+        return [subject_id]
+
+    def bfs(directed: bool) -> list[str] | None:
+        adj: dict[str, list[str]] = {}
+        for e in edges:
+            adj.setdefault(e["source"], []).append(e["target"])
+            if not directed:
+                adj.setdefault(e["target"], []).append(e["source"])
+        prev: dict[str, str | None] = {subject_id: None}
+        queue, head = [subject_id], 0
+        while head < len(queue):
+            u = queue[head]; head += 1
+            for v in adj.get(u, []):
+                if v in prev:
+                    continue
+                prev[v] = u
+                if v == target_id:
+                    path = [v]
+                    while prev[path[-1]] is not None:
+                        path.append(prev[path[-1]])  # type: ignore[arg-type]
+                    path.reverse()
+                    return path
+                queue.append(v)
+        return None
+
+    return bfs(True) or bfs(False) or []
+
+
 def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
     """Assemble {kyc, worldcheck|null, risky_paths[]} for one entity.
 
@@ -383,10 +509,14 @@ def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
     aggregated edges carry the per-counterparty detector pattern). Returns None
     when the entity has no KYC row (route -> 404).
     """
-    kyc_row = _csv_by_id("kyc.csv").get(entity_id)
+    kyc_all = _csv_by_id("kyc.csv")
+    kyc_row = kyc_all.get(entity_id)
     if kyc_row is None:
         return None
     wc_row = _csv_by_id("worldcheck.csv").get(entity_id)
+
+    def _name(eid: str) -> str:
+        return kyc_all.get(eid, {}).get("entity_name", eid)
 
     kyc = {
         "entity_id": kyc_row["entity_id"],
@@ -426,6 +556,7 @@ def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
         counterparty = e["target"] if e["source"] == entity_id else e["source"]
         risky_paths.append({
             "counterparty": counterparty,
+            "counterparty_name": _name(counterparty),   # human-readable, for the modal
             "direction": sh["direction"] if sh else "debit",
             "reason": ", ".join(reasons),
             "txn_ids": e["txn_ids"],
@@ -437,5 +568,15 @@ def build_entity_detail(contract: dict, entity_id: str) -> dict | None:
         })
     risky_paths.sort(key=lambda r: r["contribution_pct"], reverse=True)
 
-    return {"entity_id": entity_id, "kyc": kyc,
-            "worldcheck": worldcheck, "risky_paths": risky_paths}
+    # Trail back to the subject: the hop-chain (by NAME) from the alerted subject
+    # to this entity, so an investigator sees how the money reaches it rather than
+    # a lone edge floating in the network. Built over the same aggregated edges the
+    # graph draws (the benign funding corridors are present), so a deep actor still
+    # traces all the way home.
+    subject_id = contract["case"]["subject_entity_id"]
+    trail = [{"id": i, "name": _name(i)} for i in
+             _trail_from_subject(edges, subject_id, entity_id)]
+
+    return {"entity_id": entity_id, "kyc": kyc, "worldcheck": worldcheck,
+            "subject_id": subject_id, "subject_name": _name(subject_id),
+            "trail": trail, "risky_paths": risky_paths}

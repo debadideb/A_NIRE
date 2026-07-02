@@ -1,7 +1,7 @@
 case_id,subject_id,subject_name,account_number,alert_date,trigger_reason,alert_type,case_status,assigned_analyst,priority,jurisdiction
 CASE-2026-0001,E00181,Tradewind Commerce Ltd,10000367,18/01/2026,High-value outbound to high-risk jurisdiction,Transaction Monitoring,Pending EDD,R. Chen,High,GB
-CASE-2026-0002,E00204,Meridian Logistics PLC,10001272,14/02/2026,Rapid movement of funds / structuring pattern,Transaction Monitoring,In Review,S. Okafor,High,GB
-CASE-2026-0003,E00337,Halcyon Trading Group,10001544,12/05/2026,Sanctioned-jurisdiction corridor exposure,Transaction Monitoring,Open,A. Morgan,High,GB
-CASE-2026-0004,E00452,Sterling Bridge Holdings,10001876,26/02/2026,Circular fund-flow anomaly detected,Transaction Monitoring,Open,L. Rossi,High,GB
-CASE-2026-0005,E00519,Orion Freight Services Ltd,10002045,28/04/2026,Offshore shell-linkage cluster,Transaction Monitoring,In Review,S. Okafor,High,GB
-CASE-2026-0006,E00637,Kingfisher Retail Group,10002219,05/06/2026,Periodic KYC review — routine screening,Transaction Monitoring,Open,R. Chen,Low,GB
+CASE-2026-0002,E00204,Meridian Logistics PLC,10182882,14/02/2026,Rapid movement of funds / structuring pattern,Transaction Monitoring,In Review,S. Okafor,High,GB
+CASE-2026-0003,E00337,Halcyon Trading Group,10329550,12/05/2026,Sanctioned-jurisdiction corridor exposure,Transaction Monitoring,Open,A. Morgan,High,GB
+CASE-2026-0004,E00452,Sterling Bridge Holdings,10438958,26/02/2026,Circular fund-flow anomaly detected,Transaction Monitoring,Open,L. Rossi,High,GB
+CASE-2026-0005,E00519,Orion Freight Services Ltd,10506945,28/04/2026,Elevated counterparty volume — periodic review,Transaction Monitoring,In Review,S. Okafor,Medium,GB
+CASE-2026-0006,E00637,Kingfisher Retail Group,10652962,05/06/2026,Periodic KYC review — routine screening,Transaction Monitoring,Open,R. Chen,Low,GB

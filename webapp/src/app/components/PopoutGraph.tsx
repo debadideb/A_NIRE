@@ -46,8 +46,9 @@ export function PopoutGraph({ caseId, renderer }: { caseId: string; renderer?: s
         <NetworkGraph
           caseId={amlCase.id}
           isLive={!!amlCase.isLive}
+          subjectId={amlCase.subjectId}
           isPopout
-          initialRenderer={(['canvas', 'cytoscape', 'g6'].includes(renderer ?? '') ? renderer : 'canvas') as RendererId}
+          initialRenderer={(['cytoscape', 'g6', 'vis'].includes(renderer ?? '') ? renderer : 'cytoscape') as RendererId}
           initialNodes={amlCase.nodes}
           edges={amlCase.edges}
         />

@@ -10,12 +10,12 @@
 
 import { GraphNode, GraphEdge } from '../../data/cases';
 
-export type RendererId = 'canvas' | 'cytoscape' | 'g6';
+export type RendererId = 'cytoscape' | 'g6' | 'vis';
 
 export const RENDERERS: { id: RendererId; label: string; hint: string }[] = [
-  { id: 'canvas',    label: 'Default',   hint: 'Subject-centred flow map' },
   { id: 'cytoscape', label: 'Cytoscape', hint: 'Force-directed clusters' },
   { id: 'g6',        label: 'G6',        hint: 'Radial dendrogram' },
+  { id: 'vis',       label: 'vis.js',    hint: 'Physics force layout' },
 ];
 
 // One colour per detector pattern — the single source of truth for every
@@ -43,18 +43,26 @@ export const LEGEND_ITEMS = [
 // labels are light for contrast. The default canvas renderer keeps its own
 // light-theme palette.
 export function darkNode(n: GraphNode): { fill: string; stroke: string; text: string } {
-  if (n.type === 'main')       return { fill: '#f8fafc', stroke: '#f97316', text: '#f8fafc' };
-  if (n.type === 'sanctioned') return { fill: '#fecaca', stroke: '#ef4444', text: '#fca5a5' };
-  if (n.type === 'shell')      return { fill: '#fde68a', stroke: '#f59e0b', text: '#fcd34d' };
-  if (n.risk === 'high')       return { fill: '#fed7aa', stroke: '#fb923c', text: '#fdba74' };
-  if (n.risk === 'medium')     return { fill: '#fef3c7', stroke: '#fbbf24', text: '#fde68a' };
+  if (n.type === 'main')         return { fill: '#f8fafc', stroke: '#f97316', text: '#f8fafc' };
+  // Peer subject (the subject of another case): a distinct VIOLET so it reads as
+  // "important, but not this case's subject" — segregated from both the in-focus
+  // subject (orange) and ordinary counterparties.
+  if (n.type === 'peer_subject') return { fill: '#ede9fe', stroke: '#8b5cf6', text: '#c4b5fd' };
+  if (n.type === 'sanctioned')   return { fill: '#fecaca', stroke: '#ef4444', text: '#fca5a5' };
+  if (n.type === 'shell')        return { fill: '#fde68a', stroke: '#f59e0b', text: '#fcd34d' };
+  if (n.risk === 'high')         return { fill: '#fed7aa', stroke: '#fb923c', text: '#fdba74' };
+  if (n.risk === 'medium')       return { fill: '#fef3c7', stroke: '#fbbf24', text: '#fde68a' };
   return { fill: '#e2e8f0', stroke: '#94a3b8', text: '#cbd5e1' };
 }
 
 // Diameter used by the dark renderers — derived from the same flow-scaled radius
-// the adapter assigns (subject largest), clamped so labels stay legible.
+// the adapter assigns (subject largest), clamped so labels stay legible. The
+// in-focus subject keeps its full size; ordinary counterparties are drawn smaller
+// so the graph reads less cluttered; peer subjects keep a floor to stay prominent.
 export function nodeSize(n: GraphNode): number {
-  return Math.round(Math.min(60, Math.max(20, n.radius * 1.7)));
+  if (n.type === 'main') return Math.round(Math.min(60, Math.max(20, n.radius * 1.7)));
+  const base = Math.round(Math.min(42, Math.max(13, n.radius * 1.25)));
+  return n.type === 'peer_subject' ? Math.max(base, 38) : base;
 }
 
 export interface Visibility {
@@ -101,6 +109,10 @@ export interface SurfaceProps {
   visibleNodeIds: Set<string>;
   isLive: boolean;
   resetSignal: number; // bump to re-run layout + fit
+  // When false, only the subject(s) show their on-canvas name; counterparty names
+  // stay hidden unless the node is in the visible subgraph (true while a subgraph
+  // is selected / a risk factor is isolated) or hovered.
+  revealLabels: boolean;
   onHover: (node: GraphNode | null, clientX: number, clientY: number) => void;
   onOpenEntity: (id: string) => void;
 }

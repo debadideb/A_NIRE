@@ -26,6 +26,7 @@ export function CytoscapeSurface({
   visibleNodeIds,
   isLive,
   resetSignal,
+  revealLabels,
   onHover,
   onOpenEntity,
 }: SurfaceProps) {
@@ -37,19 +38,25 @@ export function CytoscapeSurface({
   // always sees the latest without being torn down and rebuilt.
   const cb = useRef({ onHover, onOpenEntity, isLive });
   cb.current = { onHover, onOpenEntity, isLive };
-  const vis = useRef({ visibleEdgeIds, visibleNodeIds });
-  vis.current = { visibleEdgeIds, visibleNodeIds };
+  const vis = useRef({ visibleEdgeIds, visibleNodeIds, revealLabels });
+  vis.current = { visibleEdgeIds, visibleNodeIds, revealLabels };
 
-  // Re-apply the slider/isolate gate as a `.faded` class (dim, never removed).
+  // Re-apply the slider/isolate gate as a `.faded` class (dim, never removed) and
+  // the label gate as a `.nolabel` class: counterparty names stay hidden unless a
+  // subgraph is selected / a factor is isolated (revealLabels) and the node is
+  // in-view. Subjects always keep their label; hover reveals via `.spot`.
   const applyVisibility = () => {
     const cy = cyRef.current;
     if (!cy) return;
-    const { visibleEdgeIds: ve, visibleNodeIds: vn } = vis.current;
+    const { visibleEdgeIds: ve, visibleNodeIds: vn, revealLabels: rl } = vis.current;
     cy.batch(() => {
-      cy.elements().removeClass('faded dim spot');
+      cy.elements().removeClass('faded dim spot nolabel');
       cy.edges().forEach((e) => { if (!ve.has(e.id())) e.addClass('faded'); });
       cy.nodes().forEach((n) => {
-        if (!vn.has(n.id()) && n.data('type') !== 'main') n.addClass('faded');
+        const t = n.data('type');
+        if (!vn.has(n.id()) && t !== 'main') n.addClass('faded');
+        const showLabel = t === 'main' || t === 'peer_subject' || (rl && vn.has(n.id()));
+        if (!showLabel) n.addClass('nolabel');
       });
     });
   };
@@ -73,7 +80,7 @@ export function CytoscapeSurface({
             fill: c.fill,
             stroke: c.stroke,
             text: c.text,
-            bw: n.type === 'main' ? 4 : 2,
+            bw: (n.type === 'main' || n.type === 'peer_subject') ? 4 : 2,
             type: n.type,
           },
         };
@@ -84,7 +91,7 @@ export function CytoscapeSurface({
           source: e.from,
           target: e.to,
           color: edgeColor(e.category),
-          w: e.suspicious ? 2.4 : 1,
+          w: e.suspicious ? 2.9 : 1.5,
         },
       })),
     ];
@@ -138,13 +145,16 @@ export function CytoscapeSurface({
             'arrow-scale': 0.85,
             'curve-style': 'bezier',
             'line-cap': 'round',
-            opacity: 0.5,
+            opacity: 0.62,
           },
         },
-        { selector: 'edge.spot', style: { opacity: 1, width: 3 } },
-        { selector: 'node.spot', style: { 'border-width': 4 } },
+        // Order matters: `.spot` (hover) comes last so it re-reveals the label of a
+        // hovered node even when it was hidden by `.faded`/`.nolabel`.
         { selector: '.dim', style: { opacity: 0.12 } },
         { selector: '.faded', style: { opacity: 0.05, 'text-opacity': 0 } },
+        { selector: 'node.nolabel', style: { 'text-opacity': 0 } },
+        { selector: 'edge.spot', style: { opacity: 1, width: 3 } },
+        { selector: 'node.spot', style: { 'border-width': 4, 'text-opacity': 1 } },
       ],
       layout: {
         name: 'fcose',
@@ -213,8 +223,8 @@ export function CytoscapeSurface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
-  // React to slider / isolate changes.
-  useEffect(applyVisibility, [visibleEdgeIds, visibleNodeIds]);
+  // React to slider / isolate / label-reveal changes.
+  useEffect(applyVisibility, [visibleEdgeIds, visibleNodeIds, revealLabels]);
 
   // Reset = re-run the force layout and re-fit.
   useEffect(() => {

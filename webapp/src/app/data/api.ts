@@ -10,7 +10,7 @@ export interface ContractNode {
   jurisdiction: string;
   kyc_status: string;
   role: string;
-  flags: { subject: boolean; sanctioned: boolean; shell: boolean };
+  flags: { subject: boolean; sanctioned: boolean; shell: boolean; peer_subject?: boolean };
 }
 
 export interface ContractEdge {
@@ -31,6 +31,16 @@ export interface Detector {
   entities: string[];
   txns: string[];
   explanation: string;
+}
+
+// Graph time-window control (1/3/6/12 months). 12m = the full case network.
+export type Duration = '1m' | '3m' | '6m' | '12m';
+
+export interface CaseGraph {
+  window: Duration;
+  as_of_day: number | null;
+  nodes: ContractNode[];
+  edges: ContractEdge[];
 }
 
 export interface CaseContract {
@@ -57,6 +67,7 @@ export interface CaseContract {
 
 export interface RiskyPath {
   counterparty: string;
+  counterparty_name: string;
   direction: 'debit' | 'credit';
   reason: string;
   txn_ids: string[];
@@ -89,6 +100,10 @@ export interface EntityDetail {
     severity: string;
     screened_name: string;
   } | null;
+  subject_id: string;
+  subject_name: string;
+  // Hop-chain (by name) from the alerted subject to this entity.
+  trail: { id: string; name: string }[];
   risky_paths: RiskyPath[];
 }
 
@@ -130,6 +145,8 @@ async function postJSON<T>(url: string, body: unknown): Promise<T> {
 }
 
 export const fetchCase = (id: string) => getJSON<CaseContract>(`/api/case/${id}`);
+export const fetchCaseGraph = (id: string, window: Duration) =>
+  getJSON<CaseGraph>(`/api/case/${id}/graph?window=${window}`);
 export const fetchModels = () => getJSON<ModelsInfo>('/api/models');
 export const fetchEntity = (id: string, entityId: string) =>
   getJSON<EntityDetail>(`/api/case/${id}/entity/${entityId}`);
