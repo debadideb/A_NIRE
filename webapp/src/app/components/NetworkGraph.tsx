@@ -1,374 +1,288 @@
-import { useRef, useEffect, useState, useCallback, lazy, Suspense } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Network, ExternalLink, ShieldAlert, Layers } from 'lucide-react';
+import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { Network, ExternalLink, ShieldAlert, Layers, CalendarClock, Waypoints } from 'lucide-react';
 import { GraphNode, GraphEdge } from '../data/cases';
+import { Duration } from '../data/api';
 import { gbpCompact } from '../data/adapter';
 import { EntityModal } from './EntityModal';
 import { RendererId, RENDERERS } from './graph/shared';
 
-// Cytoscape and G6 are heavy (~600 kB gzip together) — code-split them so the
-// default canvas view stays lean and they only download when actually selected
-// (matching the project's "lazy-load alt renderers" approach for NVL).
+// The graph is drawn by one of three pluggable engines — Cytoscape (default,
+// force-clustered), G6 (radial), or vis.js (physics). All are heavy, so they are
+// code-split and only download when selected. The toolbar, visibility gate, hover
+// tooltip and entity modal are shared chrome that wrap whichever engine is active.
 const CytoscapeSurface = lazy(() =>
   import('./graph/CytoscapeSurface').then(m => ({ default: m.CytoscapeSurface })),
 );
 const G6Surface = lazy(() =>
   import('./graph/G6Surface').then(m => ({ default: m.G6Surface })),
 );
+const VisSurface = lazy(() =>
+  import('./graph/VisSurface').then(m => ({ default: m.VisSurface })),
+);
 
-// Virtual canvas dimensions
-const VW = 720;
-const VH = 440;
-
-function edgeColor(category: GraphEdge['category']): string {
-  if (category === 'circular') return '#f97316';
-  if (category === 'sanctioned') return '#ef4444';
-  if (category === 'shell') return '#f59e0b';
-  if (category === 'high_risk') return '#d946ef';
-  if (category === 'structuring') return '#2dd4bf';
-  return '#94a3b8';
-}
-
-function nodeColors(node: GraphNode): { fill: string; stroke: string; strokeW: number; textColor: string } {
-  if (node.type === 'main')       return { fill: '#1e293b', stroke: '#f97316', strokeW: 3,   textColor: '#ffffff' };
-  if (node.type === 'sanctioned') return { fill: '#fff1f2', stroke: '#ef4444', strokeW: 2.5, textColor: '#7f1d1d' };
-  if (node.type === 'shell')      return { fill: '#fff7ed', stroke: '#f97316', strokeW: 2,   textColor: '#7c2d12' };
-  if (node.risk === 'high')       return { fill: '#fff7ed', stroke: '#fb923c', strokeW: 2,   textColor: '#431407' };
-  if (node.risk === 'medium')     return { fill: '#fffbeb', stroke: '#fbbf24', strokeW: 1.5, textColor: '#451a03' };
-  return { fill: '#f8fafc', stroke: '#94a3b8', strokeW: 1.5, textColor: '#334155' };
-}
+const SURFACE_BG: Record<RendererId, string> = { cytoscape: '#262626', g6: '#0b0b0f', vis: '#262626' };
+const RENDERER_LABEL: Record<RendererId, string> = { cytoscape: 'Cytoscape', g6: 'G6', vis: 'vis.js' };
 
 interface Props {
   caseId: string;
   isLive: boolean;
+  subjectId?: string;                 // alerted subject — anchors the contribution sliders
   initialNodes: GraphNode[];
   edges: GraphEdge[];
-  savedPositions?: Record<string, { x: number; y: number }>;
-  onNodeSelect?: (id: string | null) => void;
-  onPositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
   isPopout?: boolean;                 // true when rendered in the pop-out window
   isolateCategory?: string | null;    // isolate one risk pattern's subgraph (from RiskPanel)
   initialRenderer?: RendererId;       // pre-selected view (carried through the pop-out URL)
+  duration?: Duration;                // transaction time-window (dropdown)
+  onDurationChange?: (w: Duration) => void;
+  graphLoading?: boolean;             // true while a windowed graph is being fetched
 }
 
-export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositions, onNodeSelect, onPositionsChange, isPopout = false, isolateCategory = null, initialRenderer = 'canvas' }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [modalEntity, setModalEntity] = useState<string | null>(null); // double-click detail
-  // Pluggable renderer: the default canvas flow-map, or the vendored Cytoscape /
-  // G6 views. The contribution slider, risk-factor isolate, hover overview and
-  // entity modal are shared chrome that wrap whichever engine is active.
-  const [renderer, setRenderer] = useState<RendererId>(initialRenderer);
-  const [resetSignal, setResetSignal] = useState(0); // bumped by "Reset view" → alt renderers re-layout
+const DURATIONS: { id: Duration; label: string }[] = [
+  { id: '1m', label: '1 month' },
+  { id: '3m', label: '3 months' },
+  { id: '6m', label: '6 months' },
+  { id: '12m', label: '12 months' },
+];
 
-  // Apply saved positions on first render
-  const resolvedNodes: GraphNode[] = initialNodes.map(n =>
-    savedPositions?.[n.id] ? { ...n, ...savedPositions[n.id] } : n
-  );
-
-  const [nodes, setNodes] = useState<GraphNode[]>(resolvedNodes);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [threshold, setThreshold] = useState(0); // contribution % filter
-  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null); // tooltip anchor
-
-  const draggingRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
-  const wasDragged = useRef(false);
-  const selectedIdRef = useRef<string | null>(null);
-
-  // Visible edges = pass the contribution slider AND (if a risk factor is being
-  // isolated) match that pattern. Both gates feed node visibility below, so
-  // isolating "Circular flow" greys out everything except the circular subgraph.
-  const totalVolume = edges.reduce((s, e) => s + e.amountValue, 0);
-  const visibleEdgeIds = new Set(
-    edges
-      .filter(e =>
-        (threshold === 0 || (e.amountValue / totalVolume) * 100 >= threshold) &&
-        (!isolateCategory || e.category === isolateCategory))
-      .map(e => e.id)
-  );
-  // Nodes with no visible edges get dimmed (unless they are connected to visible ones or they're the main entity)
-  const visibleNodeIds = new Set<string>();
-  edges.forEach(e => {
-    if (visibleEdgeIds.has(e.id)) {
-      visibleNodeIds.add(e.from);
-      visibleNodeIds.add(e.to);
+// When a risk factor is isolated we must show that pattern's edges PLUS the
+// corridor that connects them back to the subject — otherwise a deep typology
+// (funded through 'normal' corridor edges the pattern filter hides) floats
+// disconnected from the subject. BFS the undirected graph from the subject,
+// remember the edge used to first reach each node, then walk those predecessor
+// edges back for every node the pattern touches → the shortest connecting trail.
+function connectorEdgesToSubject(
+  edges: GraphEdge[],
+  subj: string,
+  targets: Set<string>,
+): Set<string> {
+  const adj = new Map<string, { to: string; id: string }[]>();
+  for (const e of edges) {
+    (adj.get(e.from) ?? adj.set(e.from, []).get(e.from)!).push({ to: e.to, id: e.id });
+    (adj.get(e.to) ?? adj.set(e.to, []).get(e.to)!).push({ to: e.from, id: e.id });
+  }
+  const prevEdge = new Map<string, string>();
+  const prevNode = new Map<string, string>();
+  const seen = new Set<string>([subj]);
+  const queue = [subj];
+  let head = 0;
+  while (head < queue.length) {
+    const u = queue[head++];
+    for (const { to, id } of adj.get(u) ?? []) {
+      if (seen.has(to)) continue;
+      seen.add(to);
+      prevEdge.set(to, id);
+      prevNode.set(to, u);
+      queue.push(to);
+    }
+  }
+  const out = new Set<string>();
+  targets.forEach(t => {
+    let cur = t;
+    while (cur !== subj && prevNode.has(cur)) {
+      out.add(prevEdge.get(cur)!);
+      cur = prevNode.get(cur)!;
     }
   });
+  return out;
+}
 
-  const getScale = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { sx: 1, sy: 1, cx: 0, cy: 0 };
-    const W = canvas.width, H = canvas.height;
-    const sx = (W / VW) * zoom, sy = (H / VH) * zoom;
-    return { sx, sy, cx: (W - VW * sx) / 2, cy: (H - VH * sy) / 2 };
-  }, [zoom]);
+export function NetworkGraph({
+  caseId, isLive, subjectId, initialNodes, edges, isPopout = false,
+  isolateCategory = null, initialRenderer = 'cytoscape', duration = '12m',
+  onDurationChange, graphLoading = false,
+}: Props) {
+  const [modalEntity, setModalEntity] = useState<string | null>(null); // double-click detail
+  const [renderer, setRenderer] = useState<RendererId>(initialRenderer);
+  const [resetSignal, setResetSignal] = useState(0);                   // bump → surface re-layouts
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  // Directional contribution thresholds (% of the subject's outflow / inflow).
+  // 0 = show everything; raising one reveals only its major direct counterparties.
+  const [debitPct, setDebitPct] = useState(0);
+  const [creditPct, setCreditPct] = useState(0);
+  // Hop limit: show only counterparties within N hops of the subject. Sentinel 99
+  // = "all hops" (no filter); the dropdown clamps its shown value to the case's
+  // maxHop. Always constrains — it composes with the sliders AND isolate.
+  const [hopLimit, setHopLimit] = useState(99);
 
-  const toCanvas = useCallback((vx: number, vy: number) => {
-    const { sx, sy, cx, cy } = getScale();
-    return { x: vx * sx + cx, y: vy * sy + cy };
-  }, [getScale]);
+  // "Major counterparties" gate. Contribution is measured ONLY for the subject's
+  // DIRECT (hop-1) counterparties: each one's share of the subject's total debit
+  // (outflow) and credit (inflow). The two sliders filter the direct edges
+  // INDEPENDENTLY per direction — the debit slider hides low-share outbound edges,
+  // the credit slider hides low-share inbound edges — and a surviving direct
+  // counterparty still drags in its whole downstream network.
+  const subj = subjectId ?? initialNodes.find(n => n.type === 'main')?.id ?? null;
+  const slidersActive = debitPct > 0 || creditPct > 0;
 
-  const toVirtual = useCallback((cx: number, cy: number) => {
-    const { sx, sy, cx: ox, cy: oy } = getScale();
-    return { x: (cx - ox) / sx, y: (cy - oy) / sy };
-  }, [getScale]);
+  // All graph-derived data is MEMOISED so that hover re-renders (which only touch
+  // tooltip state) don't hand the renderers fresh array/Set references. Without
+  // this, every hover recreates `surfaceEdges`/`visibleEdgeIds`, which tears down
+  // and rebuilds the Cytoscape/vis instance mid-hover — stranding the tooltip
+  // (the `mouseout` fires on an already-destroyed instance).
+  const { surfaceEdges, visibleEdgeIds, visibleNodeIds, totalDirect, shownDirect, maxHop } = useMemo(() => {
+    // Hop distance of every node from the subject (undirected shortest path, same
+    // ring metric the layout uses). Drives the hop controller + its filter.
+    const hopOf = new Map<string, number>();
+    if (subj) {
+      const adj = new Map<string, string[]>();
+      for (const e of edges) {
+        (adj.get(e.from) ?? adj.set(e.from, []).get(e.from)!).push(e.to);
+        (adj.get(e.to) ?? adj.set(e.to, []).get(e.to)!).push(e.from);
+      }
+      hopOf.set(subj, 0);
+      const q = [subj];
+      let h = 0;
+      while (h < q.length) {
+        const u = q[h++]; const du = hopOf.get(u)!;
+        for (const v of adj.get(u) ?? []) {
+          if (hopOf.has(v)) continue;
+          hopOf.set(v, du + 1); q.push(v);
+        }
+      }
+    }
+    const maxHop = Math.max(1, ...[...hopOf.values()]);
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
+    const directCps = new Map<string, { debit: number; credit: number }>();
+    if (subj) {
+      const debitTotal = edges.filter(e => e.from === subj).reduce((s, e) => s + e.amountValue, 0);
+      const creditTotal = edges.filter(e => e.to === subj).reduce((s, e) => s + e.amountValue, 0);
+      for (const e of edges) {
+        if (e.from === subj && e.to !== subj) {
+          const cp = directCps.get(e.to) ?? { debit: 0, credit: 0 };
+          cp.debit += debitTotal ? (e.amountValue / debitTotal) * 100 : 0;
+          directCps.set(e.to, cp);
+        } else if (e.to === subj && e.from !== subj) {
+          const cp = directCps.get(e.from) ?? { debit: 0, credit: 0 };
+          cp.credit += creditTotal ? (e.amountValue / creditTotal) * 100 : 0;
+          directCps.set(e.from, cp);
+        }
+      }
+    }
+    // Directional, per-edge filtering of the subject's DIRECT edges (independent
+    // sliders). A direct debit edge S->CP survives on the DEBIT slider (its share
+    // of the subject's outflow); a direct credit edge CP->S survives on the CREDIT
+    // slider (its share of the inflow). 0 = no filter for that direction. Because
+    // contract edges are aggregated per (source,target), a cp's debit/credit % is
+    // exactly that one edge's share — so a two-way counterparty can lose one edge
+    // and keep the other. `inViewCps` = direct cps with >=1 surviving direct edge.
+    const keptDirectEdgeIds = new Set<string>();
+    const inViewCps = new Set<string>();
+    if (subj) {
+      for (const e of edges) {
+        if (e.from === subj && e.to !== subj) {
+          const x = directCps.get(e.to)?.debit ?? 0;
+          if (debitPct === 0 || x >= debitPct) { keptDirectEdgeIds.add(e.id); inViewCps.add(e.to); }
+        } else if (e.to === subj && e.from !== subj) {
+          const y = directCps.get(e.from)?.credit ?? 0;
+          if (creditPct === 0 || y >= creditPct) { keptDirectEdgeIds.add(e.id); inViewCps.add(e.from); }
+        }
+      }
+    }
 
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#e8eaed';
-    ctx.fillRect(0, 0, W, H);
+    // Visible node set: subject + in-view direct counterparties + everything
+    // reachable downstream from them (following directed edges, never crossing back
+    // through the subject) — "their corresponding networks".
+    const nodeGate = new Set<string>();
+    if (slidersActive && subj) {
+      nodeGate.add(subj);
+      const adjOut = new Map<string, string[]>();
+      for (const e of edges) (adjOut.get(e.from) ?? adjOut.set(e.from, []).get(e.from)!).push(e.to);
+      const queue = [...inViewCps];
+      inViewCps.forEach(id => nodeGate.add(id));
+      while (queue.length) {
+        const u = queue.shift()!;
+        for (const v of adjOut.get(u) ?? []) {
+          if (v === subj || nodeGate.has(v)) continue;
+          nodeGate.add(v);
+          queue.push(v);
+        }
+      }
+    }
 
-    // Grid
-    ctx.strokeStyle = 'rgba(0,0,0,0.045)';
-    ctx.lineWidth = 1;
-    const gridSize = 32 * zoom;
-    const { cx: ox, cy: oy } = getScale();
-    for (let x = ox % gridSize; x < W; x += gridSize) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (let y = oy % gridSize; y < H; y += gridSize) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    // Corridor colouring. For EVERY risk pattern present, trace the corridor from
+    // the subject to that pattern's nodes and paint those benign ('normal') edges
+    // in the pattern's colour — so each risk path reads as one continuous coloured
+    // trail back to the subject, not just the deep pattern edges. When a factor is
+    // isolated we colour only that factor's corridor (matching what stays visible).
+    // Severity order breaks the rare tie where two corridors share an edge.
+    const SEVERITY: GraphEdge['category'][] = ['sanctioned', 'high_risk', 'shell', 'structuring', 'circular'];
+    const corridorCat = new Map<string, GraphEdge['category']>();
+    const cats = isolateCategory ? [isolateCategory as GraphEdge['category']] : SEVERITY;
+    if (subj) {
+      for (const cat of cats) {
+        const patternEdges = edges.filter(e => e.category === cat);
+        if (!patternEdges.length) continue;
+        const targets = new Set<string>();
+        patternEdges.forEach(e => { targets.add(e.from); targets.add(e.to); });
+        connectorEdgesToSubject(edges, subj, targets).forEach(id => {
+          if (!corridorCat.has(id)) corridorCat.set(id, cat);
+        });
+      }
+    }
 
-    const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-    // Focus set (hover/select)
-    const focusId = hoveredId || selectedId;
-    const focusNodes = new Set<string>();
-    const focusEdges = new Set<string>();
-    if (focusId) {
-      focusNodes.add(focusId);
+    // Visible edges. Three modes, all feeding the Cytoscape / G6 / vis.js surfaces:
+    //  · Isolating a risk factor → that pattern's edges PLUS its corridor back to
+    //    the subject (so the whole trail is visible). Overrides the sliders.
+    //  · Sliders off → the whole network.
+    //  · Sliders on → each DIRECT edge survives per its own directional slider
+    //    filter; every other (downstream) edge survives only if both endpoints sit
+    //    inside the in-view network (nodeGate).
+    const veIds = new Set<string>();
+    if (isolateCategory) {
+      edges.forEach(e => { if (e.category === isolateCategory) veIds.add(e.id); });
+      corridorCat.forEach((_c, id) => veIds.add(id));
+    } else if (!slidersActive) {
+      edges.forEach(e => veIds.add(e.id));
+    } else {
       edges.forEach(e => {
-        if (e.from === focusId || e.to === focusId) {
-          focusEdges.add(e.id);
-          focusNodes.add(e.from);
-          focusNodes.add(e.to);
+        const direct = e.from === subj || e.to === subj;
+        if (direct ? keptDirectEdgeIds.has(e.id) : (nodeGate.has(e.from) && nodeGate.has(e.to))) {
+          veIds.add(e.id);
         }
       });
     }
-    const hasFocus = focusNodes.size > 0;
 
-    // ── Edges ─────────────────────────────────────────────────────
-    edges.forEach(edge => {
-      const from = nodeMap.get(edge.from);
-      const to = nodeMap.get(edge.to);
-      if (!from || !to) return;
+    // Recolour the benign corridor edges to their risk pattern's colour (edge
+    // colour is driven by `category`); real pattern edges keep their own colour.
+    const sEdges = corridorCat.size
+      ? edges.map(e => (e.category === 'normal' && corridorCat.has(e.id)
+          ? { ...e, category: corridorCat.get(e.id)! }
+          : e))
+      : edges;
 
-      const passesFilter = visibleEdgeIds.has(edge.id);
-      const highlighted = passesFilter && (!hasFocus || focusEdges.has(edge.id));
-      const alpha = !passesFilter ? 0.05 : highlighted ? 1 : 0.12;
-      const color = edgeColor(edge.category);
-      const lineW = highlighted && edge.suspicious ? 2.5 : 1.5;
-
-      const fc = toCanvas(from.x, from.y);
-      const tc = toCanvas(to.x, to.y);
-      const { sx } = getScale();
-      const fr = from.radius * sx, tr = to.radius * sx;
-      const dx = tc.x - fc.x, dy = tc.y - fc.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
-
-      const startX = fc.x + fr * Math.cos(angle);
-      const startY = fc.y + fr * Math.sin(angle);
-      const endX = tc.x - (tr + 7) * Math.cos(angle);
-      const endY = tc.y - (tr + 7) * Math.sin(angle);
-
-      const perpAngle = angle + Math.PI / 2;
-      const cpX = (fc.x + tc.x) / 2 + Math.cos(perpAngle) * dist * 0.14;
-      const cpY = (fc.y + tc.y) / 2 + Math.sin(perpAngle) * dist * 0.14;
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineWidth = lineW;
-      ctx.lineCap = 'round';
-
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.quadraticCurveTo(cpX, cpY, endX, endY);
-      ctx.stroke();
-
-      // Arrowhead
-      const tAngle = Math.atan2(endY - cpY, endX - cpX);
-      ctx.save();
-      ctx.translate(endX, endY);
-      ctx.rotate(tAngle);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-10, -4.5);
-      ctx.lineTo(-10, 4.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      // Amount label on focused edges
-      if (highlighted && hasFocus && focusEdges.has(edge.id)) {
-        const t = 0.5;
-        const lx = (1-t)*(1-t)*startX + 2*(1-t)*t*cpX + t*t*endX;
-        const ly = (1-t)*(1-t)*startY + 2*(1-t)*t*cpY + t*t*endY;
-        ctx.globalAlpha = 1;
-        const tw = ctx.measureText(edge.amount).width + 10;
-        ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        ctx.fillRect(lx - tw/2, ly - 8, tw, 16);
-        ctx.fillStyle = color;
-        ctx.font = '500 10px system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(edge.amount, lx, ly);
+    // Hop limit ALWAYS constrains (composes with the sliders and isolate): drop any
+    // surviving edge that reaches beyond `hopLimit` hops from the subject.
+    if (hopLimit < maxHop) {
+      for (const e of edges) {
+        if (!veIds.has(e.id)) continue;
+        if ((hopOf.get(e.from) ?? 0) > hopLimit || (hopOf.get(e.to) ?? 0) > hopLimit) {
+          veIds.delete(e.id);
+        }
       }
+    }
 
-      ctx.restore();
+    const vnIds = new Set<string>();
+    edges.forEach(e => {
+      if (veIds.has(e.id)) { vnIds.add(e.from); vnIds.add(e.to); }
     });
+    // The subject stays visible even if the hop limit removed all its edges.
+    if (subj && (hopLimit >= 1)) vnIds.add(subj);
 
-    // ── Nodes ──────────────────────────────────────────────────────
-    nodes.forEach(node => {
-      const inVisibleSet = visibleNodeIds.has(node.id) || node.type === 'main';
-      const highlighted = inVisibleSet && (!hasFocus || focusNodes.has(node.id));
-      const alpha = !inVisibleSet ? 0.15 : highlighted ? 1 : 0.22;
-
-      const { sx } = getScale();
-      const nc = toCanvas(node.x, node.y);
-      const r = node.radius * sx;
-      const { fill, stroke, strokeW, textColor } = nodeColors(node);
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-
-      if (hoveredId === node.id || selectedId === node.id) {
-        ctx.shadowColor = stroke;
-        ctx.shadowBlur = 16;
-      }
-
-      ctx.beginPath();
-      ctx.arc(nc.x, nc.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.strokeStyle = selectedId === node.id ? '#6366f1' : stroke;
-      ctx.lineWidth = selectedId === node.id ? strokeW + 1 : strokeW;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      const fontSize = Math.max(8, r * 0.38);
-      ctx.font = `600 ${fontSize}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = textColor;
-
-      if (node.sublabel) {
-        ctx.fillText(node.label, nc.x, nc.y - fontSize * 0.55);
-        ctx.font = `400 ${Math.max(7, r * 0.3)}px system-ui`;
-        ctx.fillStyle = node.type === 'main' ? '#94a3b8' : '#64748b';
-        ctx.fillText(node.sublabel, nc.x, nc.y + fontSize * 0.6);
-      } else {
-        ctx.fillText(node.label, nc.x, nc.y);
-      }
-
-      if (node.type === 'sanctioned') {
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(nc.x + r * 0.65, nc.y - r * 0.65, r * 0.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.restore();
-    });
-  }, [nodes, hoveredId, selectedId, zoom, edges, visibleEdgeIds, visibleNodeIds, toCanvas, getScale]);
-
-  // Resize
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const resize = () => {
-      const rect = container.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      draw();
+    return {
+      surfaceEdges: sEdges,
+      visibleEdgeIds: veIds,
+      visibleNodeIds: vnIds,
+      totalDirect: directCps.size,
+      shownDirect: slidersActive ? inViewCps.size : directCps.size,
+      maxHop,
     };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [draw]);
+  }, [edges, subj, debitPct, creditPct, slidersActive, isolateCategory, hopLimit]);
 
-  useEffect(() => { draw(); }, [draw]);
-
-  const hitTest = useCallback((vx: number, vy: number): GraphNode | null => {
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      const n = nodes[i];
-      const dx = vx - n.x, dy = vy - n.y;
-      if (dx * dx + dy * dy <= n.radius * n.radius) return n;
-    }
-    return null;
-  }, [nodes]);
-
-  const canvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    return toVirtual(e.clientX - rect.left, e.clientY - rect.top);
-  };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const { x, y } = canvasCoords(e);
-    const node = hitTest(x, y);
-    if (node) {
-      draggingRef.current = { id: node.id, ox: x - node.x, oy: y - node.y };
-      wasDragged.current = false;
-      e.currentTarget.style.cursor = 'grabbing';
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const { x, y } = canvasCoords(e);
-    if (draggingRef.current) {
-      const { id, ox, oy } = draggingRef.current;
-      wasDragged.current = true;
-      setNodes(prev => {
-        const next = prev.map(n => n.id === id ? { ...n, x: x - ox, y: y - oy } : n);
-        // Save positions (debounced via the caller)
-        const positions: Record<string, { x: number; y: number }> = {};
-        next.forEach(n => { positions[n.id] = { x: n.x, y: n.y }; });
-        onPositionsChange?.(positions);
-        return next;
-      });
-    } else {
-      const node = hitTest(x, y);
-      setHoveredId(node?.id ?? null);
-      setHoverPos(node ? { x: e.clientX, y: e.clientY } : null);
-      e.currentTarget.style.cursor = node ? 'grab' : 'default';
-    }
-  };
-
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (draggingRef.current) {
-      if (!wasDragged.current) {
-        const id = draggingRef.current.id;
-        const next = selectedIdRef.current === id ? null : id;
-        selectedIdRef.current = next;
-        setSelectedId(next);
-        onNodeSelect?.(next);
-      }
-      draggingRef.current = null;
-      e.currentTarget.style.cursor = 'default';
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredId(null);
-    setHoverPos(null);
-    draggingRef.current = null;
-  };
-
-  // Double-click a node = open its full entity-detail modal (live case only;
-  // demo stubs have no backend detail to fetch).
-  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isLive) return;
-    const { x, y } = canvasCoords(e);
-    const node = hitTest(x, y);
-    if (node) setModalEntity(node.id);
+  const resetLayout = () => {
+    setDebitPct(0);
+    setCreditPct(0);
+    setHopLimit(99);            // back to "all hops"
+    setResetSignal(s => s + 1); // tell the active renderer to re-run its layout
   };
 
   // Open the graph in a SEPARATE browser window via the ?popout route (a fresh
@@ -378,31 +292,40 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
     window.open(url, `amlGraph_${caseId}`, 'width=1280,height=860,menubar=no,toolbar=no,location=no');
   };
 
-  const resetLayout = () => {
-    selectedIdRef.current = null;
-    setNodes(initialNodes);
-    setZoom(1);
-    setThreshold(0);
-    setSelectedId(null);
-    onNodeSelect?.(null);
-    setResetSignal(s => s + 1); // tell the active alt renderer to re-run its layout
-  };
-
-  // Hover/double-click reported up by the alt renderers feed the SAME shared
-  // tooltip + entity modal the canvas uses.
-  const handleSurfaceHover = (node: GraphNode | null, clientX: number, clientY: number) => {
+  // Hover reported up by the active surface feeds the SHARED tooltip. Stable
+  // identity (useCallback) so the surface's callback ref stays put across renders.
+  const handleSurfaceHover = useCallback((node: GraphNode | null, clientX: number, clientY: number) => {
     setHoveredId(node?.id ?? null);
     setHoverPos(node ? { x: clientX, y: clientY } : null);
+  }, []);
+
+  // Reveal counterparty names only when the user has narrowed to a subgraph (sliders
+  // active) or isolated a risk factor; otherwise just the subject(s) are labelled.
+  const revealLabels = slidersActive || !!isolateCategory;
+
+  const surfaceProps = {
+    nodes: initialNodes,
+    edges: surfaceEdges,
+    visibleEdgeIds,
+    visibleNodeIds,
+    isLive,
+    resetSignal,
+    revealLabels,
+    onHover: handleSurfaceHover,
+    onOpenEntity: setModalEntity,
   };
 
-  const visibleCount = visibleEdgeIds.size;
-  const totalEdges = edges.length;
-
   return (
-    <div className="flex-1 flex flex-col overflow-hidden relative" ref={containerRef}>
+    <div
+      className="flex-1 flex flex-col overflow-hidden relative"
+      // Fallback: guarantee the tooltip clears if the pointer leaves the graph
+      // region without the engine's own mouseout/blur firing (fast exits off the
+      // canvas edge can be missed by Cytoscape/vis).
+      onMouseLeave={() => { setHoveredId(null); setHoverPos(null); }}
+    >
       {/* Toolbar */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2 flex-wrap">
-        {/* Renderer (view) switcher — Default canvas / Cytoscape / G6 */}
+        {/* Renderer (view) switcher — Cytoscape / G6 / vis.js */}
         <div
           className="bg-white/90 backdrop-blur-sm rounded-md border border-gray-200 shadow-sm flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5"
           title="Graph renderer"
@@ -438,47 +361,74 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
           </button>
         )}
 
-        {/* Contribution % slider */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-md px-3 py-1.5 border border-gray-200 shadow-sm flex items-center gap-2.5">
-          <span className="text-[10px] text-slate-500 whitespace-nowrap">Min. flow contribution</span>
-          <input
-            type="range"
-            min={0}
-            max={40}
-            step={1}
-            value={threshold}
-            onChange={e => setThreshold(Number(e.target.value))}
-            className="w-24 h-1 accent-indigo-600 cursor-pointer"
-          />
-          <span className="text-[10px] font-mono font-semibold text-indigo-700 w-8 text-right">{threshold}%</span>
-          {threshold > 0 && (
-            <span className="text-[9px] text-gray-400">
-              {visibleCount}/{totalEdges} flows
+        {/* Transaction duration window */}
+        <div
+          className="bg-white/90 backdrop-blur-sm rounded-md border border-gray-200 shadow-sm flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5"
+          title="Transaction time window"
+        >
+          <CalendarClock size={11} className="text-slate-400" />
+          <select
+            value={duration}
+            onChange={e => onDurationChange?.(e.target.value as Duration)}
+            disabled={!isLive || graphLoading || !onDurationChange}
+            className="text-[11px] text-slate-600 bg-transparent outline-none cursor-pointer disabled:cursor-default disabled:opacity-50"
+          >
+            {DURATIONS.map(d => (
+              <option key={d.id} value={d.id}>Last {d.label}</option>
+            ))}
+          </select>
+          {graphLoading && (
+            <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          )}
+        </div>
+
+        {/* Hop limit: show only counterparties within N hops of the subject. */}
+        <div
+          className="bg-white/90 backdrop-blur-sm rounded-md border border-gray-200 shadow-sm flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5"
+          title="Show only counterparties within this many hops of the subject"
+        >
+          <Waypoints size={11} className="text-slate-400" />
+          <select
+            value={Math.min(hopLimit, maxHop)}
+            onChange={e => setHopLimit(Number(e.target.value))}
+            className="text-[11px] text-slate-600 bg-transparent outline-none cursor-pointer"
+          >
+            {Array.from({ length: maxHop }, (_, i) => i + 1).map(h => (
+              <option key={h} value={h}>{h === maxHop ? `${h} hops (all)` : `${h} hop${h > 1 ? 's' : ''}`}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Directional edge gate: two independent contribution thresholds applied
+            to the subject's DIRECT edges (debit = outflow, credit = inflow). */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-md px-3 py-1.5 border border-gray-200 shadow-sm flex items-center gap-3">
+          <div className="flex items-center gap-1.5" title="Hide the subject's direct OUTBOUND (debit) edges below this share of its outflow (independent of the credit slider)">
+            <span className="text-[10px] text-slate-500 whitespace-nowrap">Debit ≥</span>
+            <input
+              type="range" min={0} max={100} step={1}
+              value={debitPct}
+              onChange={e => setDebitPct(Number(e.target.value))}
+              className="w-20 h-1 accent-rose-600 cursor-pointer"
+            />
+            <span className="text-[10px] font-mono font-semibold text-rose-700 w-9 text-right">{debitPct}%</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Hide the subject's direct INBOUND (credit) edges below this share of its inflow (independent of the debit slider)">
+            <span className="text-[10px] text-slate-500 whitespace-nowrap">Credit ≥</span>
+            <input
+              type="range" min={0} max={100} step={1}
+              value={creditPct}
+              onChange={e => setCreditPct(Number(e.target.value))}
+              className="w-20 h-1 accent-emerald-600 cursor-pointer"
+            />
+            <span className="text-[10px] font-mono font-semibold text-emerald-700 w-9 text-right">{creditPct}%</span>
+          </div>
+          {slidersActive && (
+            <span className="text-[9px] text-gray-400 whitespace-nowrap">
+              {shownDirect}/{totalDirect} direct CPs
             </span>
           )}
         </div>
       </div>
-
-      {/* Zoom controls (canvas only — the alt renderers draw their own, wired to
-          their engine's viewport) */}
-      {renderer === 'canvas' && (
-        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
-          {[
-            { icon: <ZoomIn size={13} />, action: () => setZoom(z => Math.min(z + 0.2, 3)), tip: 'Zoom in' },
-            { icon: <ZoomOut size={13} />, action: () => setZoom(z => Math.max(z - 0.2, 0.4)), tip: 'Zoom out' },
-            { icon: <Maximize2 size={13} />, action: () => setZoom(1), tip: 'Fit' },
-          ].map((btn, i) => (
-            <button
-              key={i}
-              onClick={btn.action}
-              title={btn.tip}
-              className="bg-white/90 backdrop-blur-sm rounded-md p-1.5 border border-gray-200 hover:bg-white shadow-sm text-slate-500 hover:text-slate-800 transition-colors"
-            >
-              {btn.icon}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Legend */}
       <div className="absolute bottom-4 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 shadow-sm p-2.5 text-[10px] text-gray-600 space-y-1.5">
@@ -498,97 +448,88 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
             <span>{item.label}</span>
           </div>
         ))}
+        {/* Node key: the two subject markers (in-focus vs. another case). */}
+        <div className="pt-1.5 mt-0.5 border-t border-gray-200/70 space-y-1.5">
+          {[
+            { stroke: '#f97316', fill: '#f8fafc', label: 'Subject (in focus)' },
+            { stroke: '#8b5cf6', fill: '#ede9fe', label: 'Subject · other case' },
+          ].map(item => (
+            <div key={item.label} className="flex items-center gap-2">
+              <svg width="18" height="12">
+                <circle cx="9" cy="6" r="4.5" fill={item.fill} stroke={item.stroke} strokeWidth="2" />
+              </svg>
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Selected node hint */}
-      {selectedId && (
-        <div className="absolute bottom-4 right-3 z-10 bg-indigo-600 text-white rounded-lg px-3 py-2 text-[11px] shadow-md">
-          Isolated: <strong>{nodes.find(n => n.id === selectedId)?.label}</strong> · Click to clear
-        </div>
-      )}
-
-      {/* Risk-factor isolation hint (driven from the RiskPanel) */}
+      {/* Risk-factor isolation hint (driven from the RiskPanel) — bottom-right */}
       {isolateCategory && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-slate-800 text-white rounded-lg px-3 py-1.5 text-[11px] shadow-md">
+        <div className="absolute bottom-4 right-3 z-10 bg-slate-800 text-white rounded-lg px-3 py-2 text-[11px] shadow-md">
           Isolating <strong className="capitalize">{isolateCategory}</strong> pattern · clear it from the risk factor card
         </div>
       )}
 
-      {renderer === 'canvas' ? (
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          onDoubleClick={handleDoubleClick}
-        />
-      ) : (
-        <Suspense
-          fallback={
-            <div className="flex-1 flex items-center justify-center" style={{ background: renderer === 'g6' ? '#0b0b0f' : '#262626' }}>
-              <div className="flex items-center gap-2 text-slate-400 text-xs">
-                <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
-                Loading {renderer === 'g6' ? 'G6' : 'Cytoscape'} renderer…
-              </div>
+      {/* Active renderer */}
+      <Suspense
+        fallback={
+          <div className="flex-1 flex items-center justify-center" style={{ background: SURFACE_BG[renderer] }}>
+            <div className="flex items-center gap-2 text-slate-400 text-xs">
+              <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+              Loading {RENDERER_LABEL[renderer]} renderer…
             </div>
-          }
-        >
-          {renderer === 'cytoscape' ? (
-            <CytoscapeSurface
-              nodes={nodes}
-              edges={edges}
-              visibleEdgeIds={visibleEdgeIds}
-              visibleNodeIds={visibleNodeIds}
-              isLive={isLive}
-              resetSignal={resetSignal}
-              onHover={handleSurfaceHover}
-              onOpenEntity={setModalEntity}
-            />
-          ) : (
-            <G6Surface
-              nodes={nodes}
-              edges={edges}
-              visibleEdgeIds={visibleEdgeIds}
-              visibleNodeIds={visibleNodeIds}
-              isLive={isLive}
-              resetSignal={resetSignal}
-              onHover={handleSurfaceHover}
-              onOpenEntity={setModalEntity}
-            />
-          )}
-        </Suspense>
-      )}
+          </div>
+        }
+      >
+        {renderer === 'cytoscape' ? (
+          <CytoscapeSurface {...surfaceProps} />
+        ) : renderer === 'g6' ? (
+          <G6Surface {...surfaceProps} />
+        ) : (
+          <VisSurface {...surfaceProps} />
+        )}
+      </Suspense>
 
       {/* Hover overview — entity at a glance (KYC / World-Check / transactions) */}
       {hoveredId && hoverPos && (() => {
-        const n = nodes.find(x => x.id === hoveredId);
+        const n = initialNodes.find(x => x.id === hoveredId);
         if (!n) return null;
         const sanctioned = n.sanctioned ?? n.type === 'sanctioned';
         const shell = n.shell ?? n.type === 'shell';
         const subject = n.subject ?? n.type === 'main';
+        const peerSubject = n.peerSubject ?? n.type === 'peer_subject';
         const out = edges.filter(e => e.from === n.id);
         const inc = edges.filter(e => e.to === n.id);
         const sent = out.reduce((s, e) => s + e.amountValue, 0);
         const recv = inc.reduce((s, e) => s + e.amountValue, 0);
-        const typeLabel = subject ? 'Subject' : sanctioned ? 'Sanctioned' : shell ? 'Shell' : 'Counterparty';
+        // Distinct transaction types across this entity's incident flows.
+        const typeSet = new Set<string>();
+        [...out, ...inc].forEach(e => (e.types ?? '').split(',').forEach(t => {
+          const s = t.trim().replace('_', ' '); if (s) typeSet.add(s);
+        }));
+        const typesLabel = [...typeSet].join(', ');
+        const typeLabel = subject ? 'Subject'
+          : peerSubject ? 'Subject · other case'
+          : sanctioned ? 'Sanctioned' : shell ? 'Shell' : 'Counterparty';
         return (
           <div
-            className="fixed z-[60] pointer-events-none w-60 bg-white rounded-lg shadow-xl border border-gray-200 p-3 text-[11px]"
+            className="fixed z-[60] pointer-events-none w-64 bg-white rounded-lg shadow-xl border border-gray-200 p-3 text-[11px]"
             style={{
-              left: Math.min(hoverPos.x + 16, window.innerWidth - 250),
+              left: Math.min(hoverPos.x + 16, window.innerWidth - 270),
               top: Math.min(hoverPos.y + 16, window.innerHeight - 190),
             }}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-semibold text-slate-800 truncate">{n.sublabel || n.label}</span>
-              <span className="text-[9px] font-mono text-gray-400 ml-2">{n.id}</span>
+            <div className="mb-1.5">
+              {/* Full entity name (untruncated) so the subject reads in full. */}
+              <div className="font-semibold text-slate-800 leading-snug">{n.name ?? n.sublabel ?? n.label}</div>
+              <div className="text-[9px] font-mono text-gray-400">{n.id}</div>
             </div>
             <div className="flex items-center gap-1.5 mb-2">
               <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${
                 sanctioned ? 'bg-red-50 border-red-200 text-red-700'
                 : shell ? 'bg-amber-50 border-amber-200 text-amber-700'
+                : peerSubject ? 'bg-violet-50 border-violet-200 text-violet-700'
                 : subject ? 'bg-slate-100 border-slate-200 text-slate-700'
                 : 'bg-gray-50 border-gray-200 text-gray-500'}`}>{typeLabel}</span>
               {n.jurisdiction && <span className="text-[10px] text-gray-500">{n.jurisdiction}</span>}
@@ -608,6 +549,12 @@ export function NetworkGraph({ caseId, isLive, initialNodes, edges, savedPositio
               <span className="text-gray-400">Transactions</span>
               <span className="text-slate-700">{gbpCompact(sent)} out · {gbpCompact(recv)} in</span>
             </div>
+            {typesLabel && (
+              <div className="flex justify-between text-[10px] mt-0.5 gap-2">
+                <span className="text-gray-400 flex-shrink-0">Types</span>
+                <span className="text-slate-700 text-right capitalize">{typesLabel}</span>
+              </div>
+            )}
             <div className="text-[9px] text-gray-400 mt-1.5">
               {out.length + inc.length} flow(s){isLive ? ' · double-click for full detail' : ''}
             </div>

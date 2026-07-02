@@ -1,6 +1,6 @@
 export type CaseStatus = 'ongoing' | 'closed' | 'not_started';
 export type RiskLevel = 'high' | 'medium' | 'low' | 'none';
-export type NodeType = 'main' | 'entity' | 'shell' | 'sanctioned';
+export type NodeType = 'main' | 'entity' | 'shell' | 'sanctioned' | 'peer_subject';
 // One colour per detector pattern — the backend now fires FIVE typologies, so
 // high-risk-outbound and structuring get their own categories too.
 export type EdgeCategory =
@@ -12,6 +12,7 @@ export interface GraphNode {
   id: string;
   label: string;
   sublabel?: string;
+  name?: string;        // full entity name (untruncated) for the hover tooltip
   x: number;
   y: number;
   radius: number;
@@ -24,6 +25,7 @@ export interface GraphNode {
   sanctioned?: boolean;
   shell?: boolean;
   subject?: boolean;
+  peerSubject?: boolean;   // this node is the alerted subject of a DIFFERENT case
 }
 
 export interface GraphEdge {
@@ -35,6 +37,7 @@ export interface GraphEdge {
   suspicious: boolean;
   category: EdgeCategory;
   txns?: number;       // how many transactions this arc aggregates (live data)
+  types?: string;      // transaction types on this arc (e.g. "wire, cash") for the hover detail
 }
 
 export interface RiskFactor {

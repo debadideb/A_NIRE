@@ -16,6 +16,7 @@ export function G6Surface({
   visibleNodeIds,
   isLive,
   resetSignal,
+  revealLabels,
   onHover,
   onOpenEntity,
 }: SurfaceProps) {
@@ -28,16 +29,24 @@ export function G6Surface({
   // torn down on a callback change.
   const cb = useRef({ onHover, onOpenEntity, isLive });
   cb.current = { onHover, onOpenEntity, isLive };
-  const vis = useRef({ visibleEdgeIds, visibleNodeIds });
-  vis.current = { visibleEdgeIds, visibleNodeIds };
+  const vis = useRef({ visibleEdgeIds, visibleNodeIds, revealLabels });
+  vis.current = { visibleEdgeIds, visibleNodeIds, revealLabels };
 
-  // Slider/isolate gate → dim filtered-out elements with the `inactive` state.
+  // Slider/isolate gate → dim filtered-out elements with the `inactive` state;
+  // label gate → visible-but-not-revealed counterparties get the `nolabel` state
+  // (hides the name only). Subjects always keep their label; hover sets `active`
+  // (labelOpacity 1) so the hovered node's name shows.
   const applyVisibility = () => {
     const g = graphRef.current;
     if (!g || !readyRef.current) return; // elements aren't drawn until render resolves
-    const { visibleEdgeIds: ve, visibleNodeIds: vn } = vis.current;
+    const { visibleEdgeIds: ve, visibleNodeIds: vn, revealLabels: rl } = vis.current;
     const states: Record<string, string[]> = {};
-    nodes.forEach((n) => { states[n.id] = vn.has(n.id) || n.type === 'main' ? [] : ['inactive']; });
+    nodes.forEach((n) => {
+      const visible = vn.has(n.id) || n.type === 'main';
+      if (!visible) { states[n.id] = ['inactive']; return; }
+      const showLabel = n.type === 'main' || n.type === 'peer_subject' || (rl && vn.has(n.id));
+      states[n.id] = showLabel ? [] : ['nolabel'];
+    });
     edges.forEach((e) => { states[e.id] = ve.has(e.id) ? [] : ['inactive']; });
     g.setElementState(states, false);
   };
@@ -57,11 +66,11 @@ export function G6Surface({
             size: nodeSize(n),
             fill: c.fill,
             stroke: c.stroke,
-            lineWidth: n.type === 'main' ? 4 : 1.5,
+            lineWidth: (n.type === 'main' || n.type === 'peer_subject') ? 4 : 1.5,
             labelText: n.sublabel || n.label,
             labelFill: c.text,
-            labelFontSize: n.type === 'main' ? 11 : 9,
-            labelFontWeight: n.type === 'main' ? 700 : 500,
+            labelFontSize: (n.type === 'main' || n.type === 'peer_subject') ? 11 : 9,
+            labelFontWeight: (n.type === 'main' || n.type === 'peer_subject') ? 700 : 500,
             labelPlacement: 'bottom',
             labelBackground: true,
             labelBackgroundFill: '#0b0b0f',
@@ -80,9 +89,9 @@ export function G6Surface({
           target: e.to,
           style: {
             stroke: col,
-            lineWidth: e.suspicious ? 2.2 : 1,
+            lineWidth: e.suspicious ? 2.7 : 1.5,
             endArrow: true,
-            opacity: e.suspicious ? 0.85 : 0.4,
+            opacity: e.suspicious ? 0.85 : 0.55,
             // Suspicious flows glow so the risk path stands out on black.
             shadowColor: col,
             shadowBlur: e.suspicious ? 8 : 0,
@@ -100,6 +109,7 @@ export function G6Surface({
         state: {
           active: { lineWidth: 3, shadowColor: '#ffffff', shadowBlur: 14, labelOpacity: 1 },
           inactive: { opacity: 0.18, labelOpacity: 0 },
+          nolabel: { labelOpacity: 0 }, // node visible, name hidden (label gate)
         },
       },
       edge: {
@@ -166,8 +176,8 @@ export function G6Surface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
-  // React to slider / isolate changes.
-  useEffect(applyVisibility, [visibleEdgeIds, visibleNodeIds]);
+  // React to slider / isolate / label-reveal changes.
+  useEffect(applyVisibility, [visibleEdgeIds, visibleNodeIds, revealLabels]);
 
   // Reset = re-run the radial layout and re-fit.
   useEffect(() => {

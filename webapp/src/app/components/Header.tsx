@@ -1,4 +1,4 @@
-import { Search, Bell, Settings, LogOut, Info } from 'lucide-react';
+import { LogOut, Info } from 'lucide-react';
 import { AMLCase } from '../data/cases';
 import { CaseSelector } from './CaseSelector';
 
@@ -34,19 +34,6 @@ export function Header({ userId, userName, userRole, selectedCaseId, onCaseSelec
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
-            <Search size={14} className="text-gray-500" />
-          </button>
-          <button className="p-1.5 rounded-md hover:bg-gray-100 transition-colors relative">
-            <Bell size={14} className="text-gray-500" />
-            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500" />
-          </button>
-          <button className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
-            <Settings size={14} className="text-gray-500" />
-          </button>
-
-          <div className="h-4 w-px bg-gray-200 mx-1" />
-
           <div className="flex items-center gap-2">
             <div>
               <div className="text-xs font-medium text-slate-700 leading-none">{userName}</div>
