@@ -217,6 +217,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# ── macOS Finder metadata (per-folder, machine-specific; never commit) ──
+.DS_Store
+**/.DS_Store
+
 # ── A_NIRE project-specific ──────────────────────────────────────────────
 # SQLite decision/audit store (created at runtime; never commit it).
 # .env / .venv / __pycache__ are already covered above.
